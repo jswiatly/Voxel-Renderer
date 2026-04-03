@@ -59,6 +59,10 @@ class HelloTriangleApplication{
             createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
             createInfo.pApplicationInfo = &appInfo;
 
+            auto extensions = getRequiredExtensions();
+            createInfo.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
+            createInfo.ppEnabledExtensionNames = extensions.data();
+
             if (enableValidationLayers){
                 createInfo.enabledLayerCount = static_cast<uint32_t>(validationLayers.size());
                 createInfo.ppEnabledLayerNames = validationLayers.data();
@@ -79,15 +83,9 @@ class HelloTriangleApplication{
             uint32_t extensionCount = 0;
             vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, nullptr);
 
-            std::vector<VkExtensionProperties> extensions(extensionCount);
+           // std::vector<VkExtensionProperties> extensions(extensionCount);
 
             vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, extensions.data());
-
-            std::cout << "available extensions:\n";
-
-            for (const auto& extension: extensions){
-                std::cout << '\t' << extension.extensionName << '\n';
-            }
 
             VkResult result = vkCreateInstance(&createInfo, nullptr, &instance);
 
@@ -108,6 +106,20 @@ class HelloTriangleApplication{
             glfwDestroyWindow(window);
 
             glfwTerminate();
+        }
+
+        std::vector<const char*> getRequiredExtensions(){
+            uint32_t glfwExtensionCount = 0;
+            const char** glfwExtensions;
+            glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
+
+            std::vector<const char*> extensions(glfwExtensions, glfwExtensions + glfwExtensionCount);
+
+            if (enableValidationLayers) {
+                extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+            }
+
+            return extensions;
         }
 
         bool checkValidationLayerSupport(){
