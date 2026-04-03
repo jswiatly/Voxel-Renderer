@@ -5,6 +5,7 @@
 #include <stdexcept>
 #include <cstdlib>
 #include <vector>
+#include <cstring>
 
 const uint32_t WIDTH = 800;
 const uint32_t HEIGHT = 600;
@@ -104,7 +105,22 @@ class HelloTriangleApplication{
             std::vector<VkLayerProperties> availableLayers(layerCount);
             vkEnumerateInstanceLayerProperties(&layerCount, availableLayers.data());
 
-            return false;
+            for (const char* layerName : validationLayers){
+                bool layerFound = false;
+
+                for (const auto& layerProperties : availableLayers) {
+                    if (strcmp(layerName, layerProperties.layerName) ==  0){
+                        layerFound = true;
+                        break;
+                    }
+                }
+
+                if (!layerFound){
+                    return false;
+                }
+            }
+
+            return true;
         }
 };
 
