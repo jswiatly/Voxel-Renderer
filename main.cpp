@@ -54,9 +54,17 @@ class HelloTriangleApplication{
             appInfo.pEngineName = "No Engine";
             appInfo.engineVersion = VK_MAKE_VERSION(1,0,0);
             appInfo.apiVersion = VK_API_VERSION_1_0;
+
             VkInstanceCreateInfo createInfo{};
             createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
             createInfo.pApplicationInfo = &appInfo;
+
+            if (enableValidationLayers){
+                createInfo.enabledLayerCount = static_cast<uint32_t>(validationLayers.size());
+                createInfo.ppEnabledLayerNames = validationLayers.data();
+            } else {
+                createInfo.enabledLayerCount = 0;
+            }
 
             uint32_t glfwExtensionCount = 0;
             const char** glfwExtenions;
