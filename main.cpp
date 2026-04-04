@@ -39,9 +39,10 @@ void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT
 
 struct QueueFamilyIndices{
     std::optional<uint32_t> graphicsFamily;
+    std::optional<uint32_t> presentFamily;
 
     bool isComplete(){
-        return graphicsFamily.has_value();
+        return graphicsFamily.has_value() && presentFamily.has_value();
     }
 };
 
@@ -65,6 +66,7 @@ class HelloTriangleApplication{
         VkDevice device;
 
         VkQueue graphicsQueue;
+        VkQueue presentQueue;
 
         void initWindow(){
             glfwInit();
@@ -81,6 +83,12 @@ class HelloTriangleApplication{
             createSurface();
             pickPhysicalDevice();   
             createLogicalInstance();
+        }
+
+        void createSurface(){
+            if (glfwCreateWindowSurface(instance, window, nullptr, &surface) != VK_SUCCESS){
+                throw std::runtime_error("failed to create window surface!");
+            }
         }
 
         void createLogicalInstance(){
@@ -163,6 +171,13 @@ class HelloTriangleApplication{
                 if (queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT){
                     indices.graphicsFamily = i;
                 }
+
+                VkBool32 presentSupport = false;
+                vkGetPhysicalDeviceSurfaceSupportKHR(device, i, surface, &presentSupport);
+
+                if (presentSupport){
+                    indices.presentFamily = i;
+                }
                 
                 if (indices.isComplete()){
                     break;
@@ -185,6 +200,7 @@ class HelloTriangleApplication{
                DestroyDebugUtilsMessengerEXT(instance, debugMessenger, nullptr);
             }
 
+            vkDestroySurfaceKHR(instance, surface, nullptr);
             vkDestroyInstance(instance, nullptr);
 
             vkDestroyDevice(device, nullptr);
