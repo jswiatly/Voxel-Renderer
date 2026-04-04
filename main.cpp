@@ -31,6 +31,8 @@ class HelloTriangleApplication{
     private:
         GLFWwindow* window;
         VkInstance instance;
+        VkDebugUtilsMessengerEXT debugMessenger;
+        
         void initWindow(){
             glfwInit();
             glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
@@ -70,22 +72,9 @@ class HelloTriangleApplication{
                 createInfo.enabledLayerCount = 0;
             }
 
-            uint32_t glfwExtensionCount = 0;
-            const char** glfwExtenions;
-
-            glfwExtenions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
-
-            createInfo.enabledExtensionCount = glfwExtensionCount;
-            createInfo.ppEnabledExtensionNames = glfwExtenions;
-
-            createInfo.enabledLayerCount = 0;
-
             uint32_t extensionCount = 0;
             vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, nullptr);
 
-           // std::vector<VkExtensionProperties> extensions(extensionCount);
-
-            vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, extensions.data());
 
             VkResult result = vkCreateInstance(&createInfo, nullptr, &instance);
 
@@ -145,6 +134,15 @@ class HelloTriangleApplication{
             }
 
             return true;
+        }
+
+        static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
+        VkDebugUtilsMessageTypeFlagsEXT messageType,
+        const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
+        void* pUserData){
+            std:cerr << "validation layer: " << pCallbackData->pMessage << std::endl;
+
+            return VK_FALSE;
         }
 };
 
