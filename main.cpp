@@ -153,6 +153,11 @@ class HelloTriangleApplication{
                     return availableFormat;
                 }
             }
+            return availableFormats[0];
+        }
+
+        VkPresentModeKHR chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes){
+            return VK_PRESENT_MODE_FIFO_KHR;
         }
 
         void pickPhysicalDevice(){
