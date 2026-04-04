@@ -20,6 +20,15 @@ const std::vector<const char*> validationLayers = {
     const bool enableValidationLayers = true;
 #endif
 
+VkResult CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger){
+    auto func = (PFN_vkCreateDebugUtilsMessengerEXT) vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT");
+    if (func != nullptr) {
+        return func(instance, pCreateInfo, pAllocator, pDebugMessenger);
+    } else {
+        return VK_ERROR_EXTENSION_NOT_PRESENT;
+    }
+}
+
 class HelloTriangleApplication{
     public:
             void run(){
@@ -35,14 +44,31 @@ class HelloTriangleApplication{
 
         void initWindow(){
             glfwInit();
+
             glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
             glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+
             window = glfwCreateWindow(WIDTH, HEIGHT, "Vulkan", nullptr, nullptr);
         }
 
         void initVulkan(){
             createInstance();
             setupDebugMessenger();
+        }
+
+        void mainLoop(){
+            while (!glfwWindowShouldClose(window)){
+                glfwPollEvents();
+            }
+        }
+
+        void cleanup(){
+
+            vkDestroyInstance(instance, nullptr);
+
+            glfwDestroyWindow(window);
+
+            glfwTerminate();
         }
 
         void createInstance(){
@@ -93,20 +119,10 @@ class HelloTriangleApplication{
             createInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
             createInfo.pfnUserCallback = debugCallback;
             createInfo.pUserData = nullptr; // Optional
-        }
 
-        void mainLoop(){
-            while (!glfwWindowShouldClose(window)){
-                glfwPollEvents();
+            if (CreateDebugUtilsMessengerEXT(instance, &createInfo, nullptr, &debugMessenger) != VK_SUCCESS){
+                throw std::runtime_error("failed to set up debug messenger!");
             }
-        }
-
-        void cleanup(){
-            vkDestroyInstance(instance, nullptr);
-
-            glfwDestroyWindow(window);
-
-            glfwTerminate();
         }
 
         std::vector<const char*> getRequiredExtensions(){
