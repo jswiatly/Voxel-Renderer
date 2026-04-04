@@ -61,8 +61,9 @@ class HelloTriangleApplication{
         VkDebugUtilsMessengerEXT debugMessenger;
 
         VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
-
         VkDevice device;
+
+        VkQueue graphicsQueue;
 
         void initWindow(){
             glfwInit();
@@ -109,6 +110,12 @@ class HelloTriangleApplication{
             } else {
                 createInfo.enabledLayerCount = 0;
             }
+
+            if (vkCreateDevice(physicalDevice, &createInfo, nullptr, &device) != VK_SUCCESS) {
+                throw std::runtime_error("failed to create logical device!");
+            }
+
+            vkGetDeviceQueue(device, indices.graphicsFamily.value(), 0, &graphicsQueue);
         }
 
         void pickPhysicalDevice(){
@@ -177,6 +184,8 @@ class HelloTriangleApplication{
             }
 
             vkDestroyInstance(instance, nullptr);
+
+            vkDestroyDevice(device, nullptr);
 
             glfwDestroyWindow(window);
 
