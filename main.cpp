@@ -6,6 +6,7 @@
 #include <cstdlib>
 #include <vector>
 #include <cstring>
+#include <optional>
 
 const uint32_t WIDTH = 800;
 const uint32_t HEIGHT = 600;
@@ -35,6 +36,14 @@ void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT
         func(instance, debugMessenger, pAllocator);
     }
 }
+
+struct QueueFamilyIndices{
+    std::optional<uint32_t> graphicsFamily;
+
+    bool isComplete(){
+        return graphicsFamily.has_value();
+    }
+};
 
 class HelloTriangleApplication{
     public:
@@ -80,7 +89,34 @@ class HelloTriangleApplication{
         }
 
         bool isDeviceSuitable(VkPhysicalDevice device){
-            return true;
+            QueueFamilyIndices indices = findQueueFamilies(device);
+
+            return indices.graphicsFamily.has_value();
+        }
+
+        QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device) {
+            QueueFamilyIndices indices;
+
+            uint32_t queueFamilyCount = 0;
+            vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, nullptr);
+
+            std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
+            vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, queueFamilies.data());
+        
+            int i = 0;
+            for (const auto& queueFamily : queueFamilies){
+                if (queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT){
+                    indices.graphicsFamily = i;
+                }
+                
+                if (indices.isComplete()){
+                    break;
+                }
+
+                i++;
+            }
+
+            return indices;
         }
 
         void mainLoop(){
