@@ -59,6 +59,7 @@ class HelloTriangleApplication{
 
         VkInstance instance;
         VkDebugUtilsMessengerEXT debugMessenger;
+        VkSurfaceKHR surface;
 
         VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
         VkDevice device;
@@ -77,6 +78,7 @@ class HelloTriangleApplication{
         void initVulkan(){
             createInstance();
             setupDebugMessenger();
+            createSurface();
             pickPhysicalDevice();   
             createLogicalInstance();
         }
