@@ -51,6 +51,8 @@ class HelloTriangleApplication{
         VkInstance instance;
         VkDebugUtilsMessengerEXT debugMessenger;
 
+        VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
+
         void initWindow(){
             glfwInit();
 
@@ -63,6 +65,22 @@ class HelloTriangleApplication{
         void initVulkan(){
             createInstance();
             setupDebugMessenger();
+            pickPhysicalDevice();   
+        }
+
+
+        void pickPhysicalDevice(){
+            uint32_t deviceCount = 0;
+            vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr);
+
+            if (deviceCount  == 0){
+                throw std::runtime_error("failed to find GPUs with Vulkan support!");
+            }
+
+        }
+
+        bool isDeviceSuitable(VkPhysicalDevice device){
+            return true;
         }
 
         void mainLoop(){
