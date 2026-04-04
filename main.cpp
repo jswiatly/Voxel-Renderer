@@ -82,7 +82,7 @@ class HelloTriangleApplication{
         VkQueue graphicsQueue;
         VkQueue presentQueue;
 
-        VkSwapChainKHR swapChain;
+        VkSwapchainKHR swapChain;
 
         void initWindow(){
             glfwInit();
@@ -182,7 +182,7 @@ class HelloTriangleApplication{
 
             if (indices.graphicsFamily != indices.presentFamily) {
                 createInfo.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
-                createInfo.queueFamilyIndices = 2;
+                createInfo.queueFamilyIndexCount = 2;
                 createInfo.pQueueFamilyIndices  = queueFamilyIndices;
             } else {
                 createInfo.imageSharingMode  = VK_SHARING_MODE_EXCLUSIVE;
@@ -195,6 +195,10 @@ class HelloTriangleApplication{
             createInfo.presentMode = presentMode;
             createInfo.clipped = VK_TRUE;
             createInfo.oldSwapchain = VK_NULL_HANDLE;
+
+            if (vkCreateSwapchainKHR(device, &createInfo, nullptr, &swapChain) != VK_SUCCESS){
+                throw std::runtime_error("failed to create swap chain!");
+            }
         }
 
         VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats){
