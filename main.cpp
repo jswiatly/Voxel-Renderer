@@ -8,6 +8,9 @@
 #include <cstring>
 #include <optional>
 #include <set>
+#include <cstdint>
+#include <limits>
+#include <algorithm>
 
 const uint32_t WIDTH = 800;
 const uint32_t HEIGHT = 600;
@@ -92,8 +95,9 @@ class HelloTriangleApplication{
             createInstance();
             setupDebugMessenger();
             createSurface();
-            pickPhysicalDevice();   
+            pickPhysicalDevice();
             createLogicalDevice();
+            createSwapChain();
         }
 
         void createSurface(){
@@ -147,6 +151,31 @@ class HelloTriangleApplication{
             vkGetDeviceQueue(device, indices.presentFamily.value(), 0, &presentQueue);
         }
 
+        void createSwapChain(){
+            SwapChainSupportDetails swapChainSupport = querySwapChainSupport(physicalDevice);
+
+            VkSurfaceFormatKHR surfaceFormat = chooseSwapSurfaceFormat(swapChainSupport.formats);
+            VkPresentModeKHR presentMode = chooseSwapPresentMode(swapChainSupport.presentModes);
+            VkExtent2D extent = chooseSwapExtent(swapChainSupport.capabilities);
+
+            uint32_t imageCount = swapChainSupport.capabilities.minImageCount + 1;
+
+            if (swapChainSupport.capabilities.maxImageCount > 0 && imageCount > swapChainSupport.capabilities.maxImageCount){
+                imageCount = swapChainSupport.capabilities.maxImageCount;
+            }
+
+            VkSwapchainCreateInfoKHR createInfo{};
+            createInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
+            createInfo.surface = surface;
+
+            createInfo.minImageCount = imageCount;
+            createInfo.imageFormat = surfaceFormat.format;
+            createInfo.imageColorSpace = surfaceFormat.colorSpace;
+            createInfo.imageExtent = extent;
+            createInfo.imageArrayLayers = 1;
+            createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+        }
+
         VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats){
             for (const auto& availableFormat : availableFormats){
                 if (availableFormat.format == VK_FORMAT_B8G8R8A8_SRGB && availableFormat.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR){
@@ -167,7 +196,22 @@ class HelloTriangleApplication{
         }
 
         VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities){
-            
+            if (capabilities.currentExtent.width != std::numeric_limits<uint32_t>::max()){
+                return capabilities.currentExtent;
+            } else {
+                int width, height;
+                glfwGetFramebufferSize(window, &width, &height);
+
+                VkExtent2D actualExtent = {
+                    static_cast<uint32_t>(width),
+                    static_cast<uint32_t>(height)   
+                };
+
+                actualExtent.width = std::clamp(actualExtent.width, capabilities.minImageExtent.width, capabilities.maxImageExtent.width);
+                actualExtent.height = std::clamp(actualExtent.height, capabilities.minImageExtent.height, capabilities.maxImageExtent.height);
+
+                return actualExtent;
+            }
         }
 
         void pickPhysicalDevice(){
