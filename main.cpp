@@ -108,10 +108,13 @@ class HelloTriangleApplication{
         VkExtent2D swapChainExtent;
 
         std::vector<VkImageView> swapChainImageViews;
+        std::vector<VkFramebuffer> swapChainFramebuffers;
 
         VkRenderPass renderPass;
         VkPipelineLayout pipelineLayout;
         VkPipeline graphicsPipeline;
+
+        VkCommandPool commandPool;
 
         void initWindow(){
             glfwInit();
@@ -132,6 +135,44 @@ class HelloTriangleApplication{
             createImageViews();
             createRenderPass();
             createGraphicsPipeline();
+            createFramebuffers();
+            createCommandPool();
+        }
+
+        void createCommandPool(){
+            QueueFamilyIndices queueFamilyIndices = findQueueFamilies(physicalDevice);
+
+            VkCommandPoolCreateInfo poolInfo{};
+            poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+            poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+            poolInfo.queueFamilyIndex = queueFamilyIndices.graphicsFamily.value();
+
+            if (vkCreateCommandPool(device, &poolInfo, nullptr, &commandPool) != VK_SUCCESS){
+                throw std::runtime_error("failed to create command pool!");
+            }
+        }
+
+        void createFramebuffers(){
+            swapChainFramebuffers.resize(swapChainImageViews.size());
+
+            for (size_t i = 0; i < swapChainImageViews.size(); i++){
+                VkImageView attachments[] = {
+                    swapChainImageViews[i]
+                };
+
+                VkFramebufferCreateInfo framebufferInfo{};
+                framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+                framebufferInfo.renderPass = renderPass;
+                framebufferInfo.attachmentCount = 1;
+                framebufferInfo.pAttachments = attachments;
+                framebufferInfo.width = swapChainExtent.width;
+                framebufferInfo.height = swapChainExtent.height;
+                framebufferInfo.layers = 1;
+
+                if (vkCreateFramebuffer(device, &framebufferInfo, nullptr, &swapChainFramebuffers[i]) != VK_SUCCESS){
+                    throw std::runtime_error("failed to create framebuffer!");
+                }
+            }
         }
 
         void createRenderPass(){
@@ -591,6 +632,12 @@ class HelloTriangleApplication{
         }
 
         void cleanup(){
+            vkDestroyCommandPool(device, commandPool, nullptr);
+
+            for (auto framebuffer : swapChainFramebuffers){
+                vkDestroyFramebuffer(device, framebuffer, nullptr);
+            }
+
             vkDestroyPipeline(device, graphicsPipeline, nullptr);
             vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
             vkDestroyRenderPass(device, renderPass, nullptr);
