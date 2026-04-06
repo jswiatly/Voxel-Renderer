@@ -106,18 +106,18 @@ struct Vertex {
         attributeDescriptions[0].offset = offsetof(Vertex, pos);
 
         attributeDescriptions[1].binding = 0;
-        attributeDescriptions[1].location = 0;
+        attributeDescriptions[1].location = 1;
         attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
-        attributeDescriptions[1].offset = offsetof(Vertex, pos);
+        attributeDescriptions[1].offset = offsetof(Vertex, color);
 
         return attributeDescriptions;
     }
 };
 
 const std::vector<Vertex> vertices = {
-    {{0.0f, -0.5f}, {1.0f, 0.0f, 0.0f}},
-    {{0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}},
-    {{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}}
+    {{0.0f, -0.5f}, {1.0f, 1.0f, 1.0f}},
+    {{0.5f, 0.0f}, {0.0f, 1.0f, 0.0f}},
+    {{-0.5f, 0.5f}, {1.0f, 0.0f, 1.0f}}
 };
 
 class HelloTriangleApplication{
