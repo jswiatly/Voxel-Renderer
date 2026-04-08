@@ -185,6 +185,9 @@ class HelloTriangleApplication{
         VkBuffer indexBuffer;
         VkDeviceMemory indexBufferMemory;
 
+        std::vector<VkBuffer> uniformBuffers;
+        std::vector<VkDeviceMemory> uniformBuffersMemory;
+        std::vector<void*> uniformBuffersMapped;
         std::vector<VkCommandBuffer> commandBuffers;
 
         std::vector<VkSemaphore> imageAvailableSemaphores;
@@ -224,8 +227,23 @@ class HelloTriangleApplication{
             createCommandPool();
             createVertexBuffer();
             createIndexBuffer();
+            createUniformBuffers();
             createCommandBuffers();
             createSyncObjects();
+        }
+
+        void createUniformBuffers(){
+            VkDeviceSize bufferSize = sizeof(UniformBufferObject);
+
+            uniformBuffers.resize(MAX_FRAMES_IN_FLIGHT);
+            uniformBuffersMemory.resize(MAX_FRAMES_IN_FLIGHT);
+            uniformBuffersMapped.resize(MAX_FRAMES_IN_FLIGHT);
+
+            for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+                createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniformBuffers[i], uniformBuffersMemory[i]);
+
+                vkMapMemory(device, uniformBuffersMemory[i], 0, bufferSize, 0, &uniformBuffersMapped[i]);
+            }
         }
         
         void createDescriptorSetLayout(){
@@ -1051,15 +1069,13 @@ class HelloTriangleApplication{
         }
 
         void cleanup(){
+            cleanupSwapChain();
+
             for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++){
                 vkDestroySemaphore(device, imageAvailableSemaphores[i], nullptr);
                 vkDestroySemaphore(device, renderFinishedSemaphores[i], nullptr);
                 vkDestroyFence(device, inFlightFences[i], nullptr);
             }
-
-            vkDestroyCommandPool(device, commandPool, nullptr);
-
-            cleanupSwapChain();
 
             vkDestroyBuffer(device, indexBuffer, nullptr);
             vkFreeMemory(device, indexBufferMemory, nullptr);
@@ -1071,9 +1087,18 @@ class HelloTriangleApplication{
             vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
             vkDestroyRenderPass(device, renderPass, nullptr);
 
+            for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+                vkDestroyBuffer(device, uniformBuffers[i], nullptr);
+                vkFreeMemory(device, uniformBuffersMemory[i], nullptr);
+            }
+
+            vkDestroyDescriptorSetLayout(device, descriptorSetLayout, nullptr);
+
             if (enableValidationLayers) {
                DestroyDebugUtilsMessengerEXT(instance, debugMessenger, nullptr);
             }
+
+            vkDestroyCommandPool(device, commandPool, nullptr);
 
             vkDestroyDevice(device, nullptr);
             vkDestroySurfaceKHR(instance, surface, nullptr);
