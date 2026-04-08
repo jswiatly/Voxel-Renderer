@@ -114,6 +114,12 @@ struct Vertex {
     }
 };
 
+struct UniformBufferObject {
+    glm::mat4 model;
+    glm::mat4 view;
+    glm::mat4 proj;
+};
+
 const std::vector<Vertex> vertices = {
     // Center point (Vertex 0)
     {{ 0.00f,  0.00f}, {1.0f, 1.0f, 1.0f}}, // White center
@@ -211,6 +217,7 @@ class HelloTriangleApplication{
             createSwapChain();
             createImageViews();
             createRenderPass();
+            createDescriptorSetLayout();
             createGraphicsPipeline();
             createFramebuffers();
             createCommandPool();
@@ -218,6 +225,10 @@ class HelloTriangleApplication{
             createIndexBuffer();
             createCommandBuffers();
             createSyncObjects();
+        }
+        
+        void createDescriptorSetLayout(){
+            
         }
 
         void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory){
