@@ -414,6 +414,8 @@ class HelloTriangleApplication{
             vkResetCommandBuffer(commandBuffers[currentFrame], 0);
             recordCommandBuffer(commandBuffers[currentFrame], imageIndex);
 
+            updateUniformBuffer(currentFrame);
+
             VkSubmitInfo submitInfo{};
             submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
@@ -544,6 +546,10 @@ class HelloTriangleApplication{
             createSwapChain();
             createImageViews();
             createFramebuffers();
+        }
+
+        void updateUniformBuffer(uint32_t currentImage){
+
         }
 
         void createCommandBuffers(){
