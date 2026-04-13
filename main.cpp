@@ -29,7 +29,7 @@
 const uint32_t WIDTH = 800;
 const uint32_t HEIGHT = 600;
 
-const std::string MODEL_PATH = "models/viking_room.ojb";
+const std::string MODEL_PATH = "models/viking_room.obj";
 const std::string TEXTURE_PATH = "textures/viking_room.png";
 
 const int MAX_FRAMES_IN_FLIGHT = 2;
@@ -266,10 +266,8 @@ private:
 
                 vertices.push_back(vertex);
                 indices.push_back(indices.size());
-            }
-        }
 
-        vertex.pos = {
+                vertex.pos = {
             attrib.vertices[3 * index.vertex_index + 0],
             attrib.vertices[3 * index.vertex_index + 1],
             attrib.vertices[3 * index.vertex_index + 2]
@@ -281,6 +279,10 @@ private:
         };
 
         vertex.color = {1.0f, 1.0f, 1.0f};
+            }
+        }
+
+        
     }
 
     void mainLoop() {
