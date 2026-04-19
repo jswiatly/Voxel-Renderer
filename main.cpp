@@ -29,11 +29,15 @@
 #include <set>
 #include <unordered_map>
 
+#include "imgui.h"
+#include "imgui_impl_glfw.h"
+#include "imgui_impl_vulkan.h"
+
 const uint32_t WIDTH = 800;
 const uint32_t HEIGHT = 600;
 
 const std::string MODEL_PATH = "models/viking_room.obj";
-const std::string TEXTURE_PATH = "textures/viking_room.png";
+const std::string TEXTURE_PATH = "textures/test.jpg";
 
 const int MAX_FRAMES_IN_FLIGHT = 2;
 
@@ -215,6 +219,8 @@ private:
     VkDescriptorPool descriptorPool;
     std::vector<VkDescriptorSet> descriptorSets;
 
+    VkDescriptorPool imguiPool;
+
     std::vector<VkCommandBuffer> commandBuffers;
 
     std::vector<VkSemaphore> imageAvailableSemaphores;
@@ -223,6 +229,10 @@ private:
     uint32_t currentFrame = 0;
 
     bool framebufferResized = false;
+
+    glm::vec3 cubePosition = glm::vec3(0.0f, 0.0f, 0.0f);
+    glm::vec3 cubeRotation = glm::vec3(0.0f, 0.0f, 0.0f);
+    float cubeScale = 1.0f;
 
     void initWindow() {
         glfwInit();
@@ -257,7 +267,12 @@ private:
         createTextureImage();
         createTextureImageView();
         createTextureSampler();
-        loadModel();
+       // loadModel();
+
+        addCube(glm::vec3( 0.2f,  0.5f, 0.0f), 0.5f);
+   //     addCube(glm::vec3( 0.0f,  0.14f, 0.5f), 0.5f);
+   //     addCube(glm::vec3( 0.0f, 0.0f, 0.0f), 0.5f);
+
         createVertexBuffer();
         createIndexBuffer();
         createUniformBuffers();
@@ -265,6 +280,45 @@ private:
         createDescriptorSets();
         createCommandBuffers();
         createSyncObjects();
+        initImGui();
+    }
+
+    void addCube(glm::vec3 offset, float scale) {
+        // Zapamiętujemy, od którego indeksu zaczynamy (aby nie nadpisać indeksów z załadowanego modelu)
+        uint32_t startIndex = static_cast<uint32_t>(vertices.size());
+
+        // 8 wierzchołków sześcianu
+        std::vector<Vertex> cubeVertices = {
+            {{-0.5f, -0.5f, -0.5f}, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f}},
+            {{ 0.5f, -0.5f, -0.5f}, {1.0f, 1.0f, 1.0f}, {1.0f, 0.0f}},
+            {{ 0.5f,  0.5f, -0.5f}, {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}},
+            {{-0.5f,  0.5f, -0.5f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}},
+            {{-0.5f, -0.5f,  0.5f}, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f}},
+            {{ 0.5f, -0.5f,  0.5f}, {1.0f, 1.0f, 1.0f}, {1.0f, 0.0f}},
+            {{ 0.5f,  0.5f,  0.5f}, {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}},
+            {{-0.5f,  0.5f,  0.5f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}}
+        };
+
+        // Skalujemy i przesuwamy każdy wierzchołek, a następnie dodajemy do głównej tablicy
+        for (auto& v : cubeVertices) {
+            v.pos = (v.pos * scale) + offset;
+            vertices.push_back(v);
+        }
+
+        // 36 indeksów definiujących 12 trójkątów sześcianu (po 2 na każdą z 6 ścian)
+        std::vector<uint32_t> cubeIndices = {
+            0, 1, 2, 2, 3, 0, // Tył
+            4, 5, 6, 6, 7, 4, // Przód
+            0, 4, 7, 7, 3, 0, // Lewa
+            1, 5, 6, 6, 2, 1, // Prawa
+            3, 2, 6, 6, 7, 3, // Góra
+            0, 1, 5, 5, 4, 0  // Dół
+        };
+
+        // Dodajemy indeksy uwzględniając przesunięcie (startIndex)
+        for (auto i : cubeIndices) {
+            indices.push_back(startIndex + i);
+        }
     }
 
     void loadModel() {
@@ -308,6 +362,27 @@ private:
     void mainLoop() {
         while (!glfwWindowShouldClose(window)) {
             glfwPollEvents();
+
+            ImGui_ImplVulkan_NewFrame();
+            ImGui_ImplGlfw_NewFrame();
+            ImGui::NewFrame();
+
+            ImGui::Begin("Cube controller");
+
+            ImGui::SliderFloat3("Position", &cubePosition.x, -5.0f, 5.0f);
+            ImGui::SliderFloat3("Rotation", &cubeRotation.x, 0.0f, 360.0f);
+            ImGui::SliderFloat("Scale", &cubeScale, 0.1f, 5.0f);
+
+            if (ImGui::Button("Reset")) {
+                cubePosition = glm::vec3(0.0f, 0.0f, 0.0f);
+                cubeRotation = glm::vec3(0.0f, 0.0f, 0.0f);
+                cubeScale = 1.0f;
+            }
+            
+            ImGui::End();
+
+            ImGui::Render();
+
             drawFrame();
         }
 
@@ -336,6 +411,11 @@ private:
 
     void cleanup() {
         cleanupSwapChain();
+
+        ImGui_ImplVulkan_Shutdown();
+        ImGui_ImplGlfw_Shutdown();
+        ImGui::DestroyContext();
+        vkDestroyDescriptorPool(device, imguiPool, nullptr);
 
         vkDestroyPipeline(device, graphicsPipeline, nullptr);
         vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
@@ -1128,6 +1208,54 @@ private:
         }
     }
 
+    void createImGuiDescriptorPool() {
+        std::array<VkDescriptorPoolSize, 1> poolSizes{};
+        poolSizes[0].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        poolSizes[0].descriptorCount = 1000;
+
+        VkDescriptorPoolCreateInfo poolInfo{};
+        poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+        poolInfo.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
+        poolInfo.maxSets = 1000;
+        poolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
+        poolInfo.pPoolSizes = poolSizes.data();
+
+        if (vkCreateDescriptorPool(device, &poolInfo, nullptr, &imguiPool) != VK_SUCCESS){
+            throw std::runtime_error("failed to create imgui descriptor pool!");
+        }
+    }
+
+ void initImGui() {
+    createImGuiDescriptorPool();
+
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO(); (void)io;
+    ImGui::StyleColorsDark();
+
+    ImGui_ImplGlfw_InitForVulkan(window, true);
+
+    ImGui_ImplVulkan_InitInfo init_info = {};
+    init_info.Instance = instance;
+    init_info.PhysicalDevice = physicalDevice;
+    init_info.Device = device;
+    init_info.QueueFamily = findQueueFamilies(physicalDevice).graphicsFamily.value();
+    init_info.Queue = graphicsQueue;
+    init_info.PipelineCache = VK_NULL_HANDLE;
+    init_info.DescriptorPool = imguiPool;
+    init_info.MinImageCount = MAX_FRAMES_IN_FLIGHT;
+    init_info.ImageCount = MAX_FRAMES_IN_FLIGHT;
+
+    init_info.PipelineInfoMain.RenderPass = renderPass;
+    init_info.PipelineInfoMain.Subpass = 0;
+    init_info.PipelineInfoMain.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
+
+    init_info.Allocator = nullptr;
+    init_info.CheckVkResultFn = nullptr;
+
+    ImGui_ImplVulkan_Init(&init_info);
+}
+
     void createDescriptorSets() {
         std::vector<VkDescriptorSetLayout> layouts(MAX_FRAMES_IN_FLIGHT, descriptorSetLayout);
         VkDescriptorSetAllocateInfo allocInfo{};
@@ -1320,6 +1448,8 @@ private:
 
             vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
 
+            ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), commandBuffer);
+
         vkCmdEndRenderPass(commandBuffer);
 
         if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {
@@ -1368,7 +1498,31 @@ private:
         float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
 
         UniformBufferObject ubo{};
+
+        /*
         ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+        ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+        ubo.proj = glm::perspective(glm::radians(45.0f), swapChainExtent.width / (float) swapChainExtent.height, 0.1f, 10.0f);
+        ubo.proj[1][1] *= -1;
+        */
+
+        // 1. Start od macierzy jednostkowej
+        glm::mat4 model = glm::mat4(1.0f);
+
+        // 2. Przesunięcie z ImGui
+        model = glm::translate(model, cubePosition);
+
+        // 3. Rotacja z ImGui (względem X, Y, Z)
+        model = glm::rotate(model, glm::radians(cubeRotation.x), glm::vec3(1.0f, 0.0f, 0.0f));
+        model = glm::rotate(model, glm::radians(cubeRotation.y), glm::vec3(0.0f, 1.0f, 0.0f));
+        model = glm::rotate(model, glm::radians(cubeRotation.z), glm::vec3(0.0f, 0.0f, 1.0f));
+
+        // 4. Skalowanie z ImGui
+        model = glm::scale(model, glm::vec3(cubeScale));
+
+        ubo.model = model;
+
+        // Reszta bez zmian
         ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
         ubo.proj = glm::perspective(glm::radians(45.0f), swapChainExtent.width / (float) swapChainExtent.height, 0.1f, 10.0f);
         ubo.proj[1][1] *= -1;
