@@ -367,6 +367,16 @@ private:
             ImGui_ImplGlfw_NewFrame();
             ImGui::NewFrame();
 
+            ImGui::Begin("Performance");
+            ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+
+            static float values[90] = {};
+            static int values_offset = 0;
+            values[values_offset] = ImGui::GetIO().Framerate;
+            values_offset = (values_offset + 1) % 90;
+            ImGui::PlotLines("FPS", values, IM_ARRAYSIZE(values), values_offset, "History", 0.0f, 165.0f, ImVec2(0, 80));
+            ImGui::End();
+
             ImGui::Begin("Cube controller");
 
             ImGui::SliderFloat3("Position", &cubePosition.x, -5.0f, 5.0f);
