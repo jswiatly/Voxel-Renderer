@@ -29,6 +29,8 @@
 #include <set>
 #include <unordered_map>
 
+#include <mutex>
+
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_vulkan.h"
@@ -221,6 +223,8 @@ private:
 
     VkDescriptorPool imguiPool;
 
+    float clearColor[4] = {0.1f, 0.1f, 0.1f, 1.0f};
+
     std::vector<VkCommandBuffer> commandBuffers;
 
     std::vector<VkSemaphore> imageAvailableSemaphores;
@@ -233,6 +237,14 @@ private:
     glm::vec3 cubePosition = glm::vec3(0.0f, 0.0f, 0.0f);
     glm::vec3 cubeRotation = glm::vec3(0.0f, 0.0f, 0.0f);
     float cubeScale = 1.0f;
+
+    struct ValidaionLog {
+        VkDebugUtilsMessageSeverityFlagBitsEXT severity;
+        std::string message;
+    };
+
+    std::vector<ValidaionLog> validationLogs;
+    std::mutex logMutex;
 
     void initWindow() {
         glfwInit();
@@ -367,23 +379,26 @@ private:
             ImGui_ImplGlfw_NewFrame();
             ImGui::NewFrame();
 
+            ImGui::Begin("Debug");
+            ImGui::ColorEdit4("Background Color", clearColor);
+            ImGui::End();
+
             ImGui::Begin("Performance");
             ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
             ImGui::End();
 
             ImGui::Begin("Cube controller");
-
             ImGui::SliderFloat3("Position", &cubePosition.x, -5.0f, 5.0f);
             ImGui::SliderFloat3("Rotation", &cubeRotation.x, 0.0f, 360.0f);
             ImGui::SliderFloat("Scale", &cubeScale, 0.1f, 5.0f);
-
             if (ImGui::Button("Reset")) {
                 cubePosition = glm::vec3(0.0f, 0.0f, 0.0f);
                 cubeRotation = glm::vec3(0.0f, 0.0f, 0.0f);
                 cubeScale = 1.0f;
             }
-            
             ImGui::End();
+
+            drawValidationLogWindow();
 
             ImGui::Render();
 
@@ -532,6 +547,8 @@ private:
         createInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
         createInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
         createInfo.pfnUserCallback = debugCallback;
+
+        createInfo.pUserData = this;
     }
 
     void setupDebugMessenger() {
@@ -677,6 +694,22 @@ private:
             swapChainImageViews[i] = createImageView(swapChainImages[i], swapChainImageFormat, VK_IMAGE_ASPECT_COLOR_BIT);
         }
     }
+
+    void drawValidationLogWindow() {
+    ImGui::Begin("Vulkan Validation Layers");
+    ImGui::Separator();
+    ImGui::BeginChild("LogRegion", ImVec2(0, 0), false, ImGuiWindowFlags_HorizontalScrollbar);
+    std::lock_guard<std::mutex> lock(logMutex);
+    for (const auto& log : validationLogs) {
+        ImVec4 color = ImVec4(0.4f, 1.0f, 0.4f, 1.0f);
+        ImGui::PushStyleColor(ImGuiCol_Text, color);
+        ImGui::TextWrapped("%s", log.message.c_str());
+        ImGui::PopStyleColor();
+        ImGui::Separator();
+    }
+    ImGui::EndChild();
+    ImGui::End();
+}
 
     void createRenderPass() {
         VkAttachmentDescription colorAttachment{};
@@ -1418,7 +1451,7 @@ private:
         renderPassInfo.renderArea.extent = swapChainExtent;
 
         std::array<VkClearValue, 2> clearValues{};
-        clearValues[0].color = {{0.0f, 0.0f, 0.0f, 1.0f}};
+        clearValues[0].color = {{ clearColor[0], clearColor[1], clearColor[2], clearColor[3] }};
         clearValues[1].depthStencil = {1.0f, 0};
 
         renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
@@ -1799,6 +1832,13 @@ private:
     }
 
     static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageType, const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData) {
+        auto app = reinterpret_cast<HelloTriangleApplication*>(pUserData);
+        
+        if (app != nullptr){
+            std::lock_guard<std::mutex> lock(app->logMutex);
+            app->validationLogs.push_back({messageSeverity, pCallbackData->pMessage});
+        }
+        
         std::cerr << "validation layer: " << pCallbackData->pMessage << std::endl;
 
         return VK_FALSE;
