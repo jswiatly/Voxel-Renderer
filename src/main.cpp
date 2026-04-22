@@ -365,16 +365,8 @@ private:
 }
     }
 
-
-    void mainLoop() {
-        while (!glfwWindowShouldClose(window)) {
-            glfwPollEvents();
-
-            ImGui_ImplVulkan_NewFrame();
-            ImGui_ImplGlfw_NewFrame();
-            ImGui::NewFrame();
-
-            ImGui::Begin("Debug");
+    void DrawImGui(){
+        ImGui::Begin("Debug");
             ImGui::ColorEdit4("Background Color", clearColor);
             ImGui::End();
 
@@ -392,11 +384,18 @@ private:
                 cubeScale = 1.0f;
             }
             ImGui::End();
+    }
 
+
+    void mainLoop() {
+        while (!glfwWindowShouldClose(window)) {
+            glfwPollEvents();
+            ImGui_ImplVulkan_NewFrame();
+            ImGui_ImplGlfw_NewFrame();
+            ImGui::NewFrame();
+            DrawImGui();
             drawValidationLogWindow();
-
             ImGui::Render();
-
             drawFrame();
         }
 
