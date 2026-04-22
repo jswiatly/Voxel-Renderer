@@ -1566,23 +1566,18 @@ private:
         ubo.proj[1][1] *= -1;
         */
 
-        // 1. Start od macierzy jednostkowej
         glm::mat4 model = glm::mat4(1.0f);
 
-        // 2. Przesunięcie z ImGui
         model = glm::translate(model, cubePosition);
 
-        // 3. Rotacja z ImGui (względem X, Y, Z)
         model = glm::rotate(model, glm::radians(cubeRotation.x), glm::vec3(1.0f, 0.0f, 0.0f));
         model = glm::rotate(model, glm::radians(cubeRotation.y), glm::vec3(0.0f, 1.0f, 0.0f));
         model = glm::rotate(model, glm::radians(cubeRotation.z), glm::vec3(0.0f, 0.0f, 1.0f));
 
-        // 4. Skalowanie z ImGui
         model = glm::scale(model, glm::vec3(cubeScale));
 
         ubo.model = model;
 
-        // Reszta bez zmian
         ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
         ubo.proj = glm::perspective(glm::radians(45.0f), swapChainExtent.width / (float) swapChainExtent.height, 0.1f, 10.0f);
         ubo.proj[1][1] *= -1;
