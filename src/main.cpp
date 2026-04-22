@@ -296,10 +296,8 @@ private:
     }
 
     void addCube(glm::vec3 offset, float scale) {
-        // Zapamiętujemy, od którego indeksu zaczynamy (aby nie nadpisać indeksów z załadowanego modelu)
         uint32_t startIndex = static_cast<uint32_t>(vertices.size());
 
-        // 8 wierzchołków sześcianu
         std::vector<Vertex> cubeVertices = {
             {{-0.5f, -0.5f, -0.5f}, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f}},
             {{ 0.5f, -0.5f, -0.5f}, {1.0f, 1.0f, 1.0f}, {1.0f, 0.0f}},
@@ -311,23 +309,20 @@ private:
             {{-0.5f,  0.5f,  0.5f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}}
         };
 
-        // Skalujemy i przesuwamy każdy wierzchołek, a następnie dodajemy do głównej tablicy
         for (auto& v : cubeVertices) {
             v.pos = (v.pos * scale) + offset;
             vertices.push_back(v);
         }
 
-        // 36 indeksów definiujących 12 trójkątów sześcianu (po 2 na każdą z 6 ścian)
         std::vector<uint32_t> cubeIndices = {
-            0, 1, 2, 2, 3, 0, // Tył
-            4, 5, 6, 6, 7, 4, // Przód
-            0, 4, 7, 7, 3, 0, // Lewa
-            1, 5, 6, 6, 2, 1, // Prawa
-            3, 2, 6, 6, 7, 3, // Góra
-            0, 1, 5, 5, 4, 0  // Dół
+            0, 1, 2, 2, 3, 0,
+            4, 5, 6, 6, 7, 4,
+            0, 4, 7, 7, 3, 0,
+            1, 5, 6, 6, 2, 1,
+            3, 2, 6, 6, 7, 3,
+            0, 1, 5, 5, 4, 0
         };
 
-        // Dodajemy indeksy uwzględniając przesunięcie (startIndex)
         for (auto i : cubeIndices) {
             indices.push_back(startIndex + i);
         }
