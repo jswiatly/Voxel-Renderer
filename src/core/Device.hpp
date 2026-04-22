@@ -21,3 +21,10 @@ struct SwapChainSupportDetails {
     std::vector<VkSurfaceFormatKHR> formats;
     std::vector<VkPresentModeKHR> presentModes;
 };
+
+class VulkanDevice {
+    public:
+        VulkanDevice();
+        ~VulkanDevice();
+    private:
+};
