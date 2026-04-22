@@ -35,8 +35,8 @@
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_vulkan.h"
 
-const uint32_t WIDTH = 800;
-const uint32_t HEIGHT = 600;
+const uint32_t WIDTH = 1920;
+const uint32_t HEIGHT = 1080;
 
 const std::string MODEL_PATH = "models/viking_room.obj";
 const std::string TEXTURE_PATH = "textures/test.jpg";
@@ -238,12 +238,12 @@ private:
     glm::vec3 cubeRotation = glm::vec3(0.0f, 0.0f, 0.0f);
     float cubeScale = 1.0f;
 
-    struct ValidaionLog {
+    struct ValidationLog {
         VkDebugUtilsMessageSeverityFlagBitsEXT severity;
         std::string message;
     };
 
-    std::vector<ValidaionLog> validationLogs;
+    std::vector<ValidationLog> validationLogs;
     std::mutex logMutex;
 
     void initWindow() {
@@ -544,7 +544,7 @@ private:
     void populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo) {
         createInfo = {};
         createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
-        createInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
+        createInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT;
         createInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
         createInfo.pfnUserCallback = debugCallback;
 
@@ -560,7 +560,20 @@ private:
         if (CreateDebugUtilsMessengerEXT(instance, &createInfo, nullptr, &debugMessenger) != VK_SUCCESS) {
             throw std::runtime_error("failed to set up debug messenger!");
         }
+
+	auto func = (PFN_vkSubmitDebugUtilsMessageEXT) vkGetInstanceProcAddr(instance, "vkSubmitDebugUtilsMessageEXT");
+	if (func != nullptr){
+		VkDebugUtilsMessengerCallbackDataEXT callbackData{};
+		callbackData.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CALLBACK_DATA_EXT;
+        callbackData.pMessageIdName = "USER";
+		callbackData.pMessage = "TEST INFO";
+		func(instance, VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT, VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT, &callbackData);
+        callbackData.pMessage = "TEST WARNING";
+        func(instance, VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT, VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT, &callbackData);
+        callbackData.pMessage = "TEST ERROR";
+        func(instance, VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT, VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT, &callbackData);
     }
+}
 
     void createSurface() {
         if (glfwCreateWindowSurface(instance, window, nullptr, &surface) != VK_SUCCESS) {
@@ -700,10 +713,26 @@ private:
     ImGui::Separator();
     ImGui::BeginChild("LogRegion", ImVec2(0, 0), false, ImGuiWindowFlags_HorizontalScrollbar);
     std::lock_guard<std::mutex> lock(logMutex);
+
     for (const auto& log : validationLogs) {
-        ImVec4 color = ImVec4(0.4f, 1.0f, 0.4f, 1.0f);
-        ImGui::PushStyleColor(ImGuiCol_Text, color);
-        ImGui::TextWrapped("%s", log.message.c_str());
+	ImVec4 color;
+	std::string displayText = log.message;	
+	if (log.severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT){
+	color = ImVec4(1.0f, 0.4f, 0.4f, 1.0f);
+	displayText = "[ERROR] " + displayText;
+	} else if (log.severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT){
+	color = ImVec4(1.0f, 0.8f, 0.3f, 1.0f);
+	displayText = "[WARNING] " + displayText;
+	} else if (log.severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT){
+	color = ImVec4(0.4f, 0.8f, 0.3f, 1.0f);
+	displayText = "[INFO] " + displayText;
+	} else {
+	displayText = "[OTHER] " + displayText;
+	color = ImVec4(0.7f, 0.7f, 0.7f, 1.0f);
+	}
+
+	ImGui::PushStyleColor(ImGuiCol_Text, color);
+        ImGui::TextWrapped("%s", displayText.c_str());
         ImGui::PopStyleColor();
         ImGui::Separator();
     }
@@ -1832,6 +1861,13 @@ private:
     }
 
     static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageType, const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData) {
+        if (messageSeverity == VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT) {
+        if (pCallbackData->pMessageIdName == nullptr || 
+            std::string(pCallbackData->pMessageIdName) != "USER") {
+            return VK_FALSE; 
+        }
+    }
+
         auto app = reinterpret_cast<HelloTriangleApplication*>(pUserData);
         
         if (app != nullptr){
