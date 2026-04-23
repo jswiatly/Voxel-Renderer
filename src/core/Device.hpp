@@ -1,10 +1,6 @@
 #pragma once
 
-#define GLFW_INCLUDE_VULKAN
-#include <GLFW/glfw3.h>
-
 #include <vector>
-#include <string>
 #include <optional>
 
 struct QueueFamilyIndices {
@@ -20,6 +16,10 @@ struct SwapChainSupportDetails {
     VkSurfaceCapabilitiesKHR capabilities;
     std::vector<VkSurfaceFormatKHR> formats;
     std::vector<VkPresentModeKHR> presentModes;
+};
+
+const std::vector<const char*> validationLayers = {
+    "VK_LAYER_KHRONOS_validation"
 };
 
 class VulkanDevice {

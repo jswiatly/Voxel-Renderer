@@ -19,13 +19,13 @@
 #include <stdexcept>
 #include <algorithm>
 #include <chrono>
-#include <vector>
-#include <cstring>
+//#include <vector>
+//#include <cstring>
 #include <cstdlib>
 #include <cstdint>
 #include <limits>
 #include <array>
-#include <optional>
+//#include <optional>
 #include <set>
 #include <unordered_map>
 
@@ -34,18 +34,13 @@
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_vulkan.h"
-
-const uint32_t WIDTH = 1920;
-const uint32_t HEIGHT = 1080;
+#include "core/Device.hpp"
+#include "core/Window.hpp"
 
 const std::string MODEL_PATH = "models/viking_room.obj";
 const std::string TEXTURE_PATH = "textures/test.jpg";
 
 const int MAX_FRAMES_IN_FLIGHT = 2;
-
-const std::vector<const char*> validationLayers = {
-    "VK_LAYER_KHRONOS_validation"
-};
 
 const std::vector<const char*> deviceExtensions = {
     VK_KHR_SWAPCHAIN_EXTENSION_NAME
@@ -73,6 +68,7 @@ void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT
     }
 }
 
+/*
 struct QueueFamilyIndices {
     std::optional<uint32_t> graphicsFamily;
     std::optional<uint32_t> presentFamily;
@@ -87,6 +83,8 @@ struct SwapChainSupportDetails {
     std::vector<VkSurfaceFormatKHR> formats;
     std::vector<VkPresentModeKHR> presentModes;
 };
+
+*/
 
 struct Vertex {
     glm::vec3 pos;
