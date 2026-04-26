@@ -204,6 +204,21 @@ private:
     std::vector<ValidationLog> validationLogs;
     std::mutex logMutex;
 
+    glm::vec3 cameraPos = glm::vec3(0.0f, 0.0f, 3.0f);
+    glm::vec3 cameraFront = glm::vec3(0.0f, 0.0f, -1.0f);
+    glm::vec3 cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
+
+    float yaw = -90.0f;
+    float pitch = 0.0f;
+    float lastX = 400, lastY = 300;
+    bool firstMouse = true;
+
+    float deltaTime = 0.0f;
+    float lastFrame = 0.0f;
+
+    bool cursorMode = false;
+    bool MouseModeKeyWasPressed = false;
+
     void initWindow() {
         glfwInit();
 
@@ -212,6 +227,39 @@ private:
         window = glfwCreateWindow(WIDTH, HEIGHT, "Vulkan", nullptr, nullptr);
         glfwSetWindowUserPointer(window, this);
         glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
+        glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+        glfwSetWindowUserPointer(window, this);
+
+        glfwSetCursorPosCallback(window, [](GLFWwindow* window, double xpos, double ypos) {
+    auto app = reinterpret_cast<HelloTriangleApplication*>(glfwGetWindowUserPointer(window));
+    
+    if (app->firstMouse) {
+        app->lastX = xpos;
+        app->lastY = ypos;
+        app->firstMouse = false;
+    }
+
+    float xoffset = xpos - app->lastX;
+    float yoffset = app->lastY - ypos;
+    app->lastX = xpos;
+    app->lastY = ypos;
+
+    float sensitivity = 0.1f;
+    xoffset *= sensitivity;
+    yoffset *= sensitivity;
+
+    app->yaw += xoffset;
+    app->pitch += yoffset;
+
+    if (app->pitch > 89.0f) app->pitch = 89.0f;
+    if (app->pitch < -89.0f) app->pitch = -89.0f;
+
+    glm::vec3 front;
+    front.x = cos(glm::radians(app->yaw)) * cos(glm::radians(app->pitch));
+    front.y = sin(glm::radians(app->pitch));
+    front.z = sin(glm::radians(app->yaw)) * cos(glm::radians(app->pitch));
+    app->cameraFront = glm::normalize(front);
+});
     }
 
     static void framebufferResizeCallback(GLFWwindow* window, int width, int height) {
@@ -253,38 +301,94 @@ private:
         initImGui();
     }
 
-    void addCube(glm::vec3 offset, float scale) {
-        uint32_t startIndex = static_cast<uint32_t>(vertices.size());
+    void processInput(GLFWwindow* window) {
+    float currentFrame = glfwGetTime();
+    deltaTime = currentFrame - lastFrame;
+    lastFrame = currentFrame;
+    float cameraSpeed = 2.5f * deltaTime;
 
-        std::vector<Vertex> cubeVertices = {
-            {{-0.5f, -0.5f, -0.5f}, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f}},
-            {{ 0.5f, -0.5f, -0.5f}, {1.0f, 1.0f, 1.0f}, {1.0f, 0.0f}},
-            {{ 0.5f,  0.5f, -0.5f}, {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}},
-            {{-0.5f,  0.5f, -0.5f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}},
-            {{-0.5f, -0.5f,  0.5f}, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f}},
-            {{ 0.5f, -0.5f,  0.5f}, {1.0f, 1.0f, 1.0f}, {1.0f, 0.0f}},
-            {{ 0.5f,  0.5f,  0.5f}, {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}},
-            {{-0.5f,  0.5f,  0.5f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}}
-        };
-
-        for (auto& v : cubeVertices) {
-            v.pos = (v.pos * scale) + offset;
-            vertices.push_back(v);
-        }
-
-        std::vector<uint32_t> cubeIndices = {
-            0, 1, 2, 2, 3, 0,
-            4, 5, 6, 6, 7, 4,
-            0, 4, 7, 7, 3, 0,
-            1, 5, 6, 6, 2, 1,
-            3, 2, 6, 6, 7, 3,
-            0, 1, 5, 5, 4, 0
-        };
-
-        for (auto i : cubeIndices) {
-            indices.push_back(startIndex + i);
+    bool fKeyPressed = glfwGetKey(window, GLFW_KEY_F) == GLFW_PRESS;
+    
+    if (fKeyPressed && !MouseModeKeyWasPressed) {
+        cursorMode = !cursorMode; // Zmień tryb
+        
+        if (cursorMode) {
+            // TRYB GUI: Pokazujemy kursor
+            glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+        } else {
+            // TRYB KAMERY: Ukrywamy kursor i wracamy do latania
+            glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+            firstMouse = true; // Resetujemy "pierwszy ruch myszy", żeby kamera nie szarpnęła
         }
     }
+    MouseModeKeyWasPressed = fKeyPressed;
+
+    // WAŻNE: Ruch kamery (WASD) powinien działać tylko, gdy NIE jesteśmy w trybie GUI
+    if (!cursorMode) {
+        float cameraSpeed = 2.5f * deltaTime;
+        if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) cameraPos += cameraSpeed * cameraFront;
+        if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) cameraPos -= cameraSpeed * cameraFront;
+        if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) cameraPos -= glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed;
+        if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) cameraPos += glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed;
+    }
+}
+
+void addCube(glm::vec3 offset, float scale) {
+    uint32_t startIndex = static_cast<uint32_t>(vertices.size());
+    glm::vec3 color = {1.0f, 1.0f, 1.0f}; // Biały, żeby nie barwił tekstury
+
+    std::vector<Vertex> cubeVertices = {
+        // Pozycja (x, y, z)          // Kolor            // UV (u, v)
+        // Przód (Z = 0.5)
+        {{-0.5f, -0.5f,  0.5f}, color, {0.0f, 0.0f}}, // 0
+        {{ 0.5f, -0.5f,  0.5f}, color, {1.0f, 0.0f}}, // 1
+        {{ 0.5f,  0.5f,  0.5f}, color, {1.0f, 1.0f}}, // 2
+        {{-0.5f,  0.5f,  0.5f}, color, {0.0f, 1.0f}}, // 3
+        // Tył (Z = -0.5)
+        {{ 0.5f, -0.5f, -0.5f}, color, {0.0f, 0.0f}}, // 4
+        {{-0.5f, -0.5f, -0.5f}, color, {1.0f, 0.0f}}, // 5
+        {{-0.5f,  0.5f, -0.5f}, color, {1.0f, 1.0f}}, // 6
+        {{ 0.5f,  0.5f, -0.5f}, color, {0.0f, 1.0f}}, // 7
+        // Lewo (X = -0.5)
+        {{-0.5f, -0.5f, -0.5f}, color, {0.0f, 0.0f}}, // 8
+        {{-0.5f, -0.5f,  0.5f}, color, {1.0f, 0.0f}}, // 9
+        {{-0.5f,  0.5f,  0.5f}, color, {1.0f, 1.0f}}, // 10
+        {{-0.5f,  0.5f, -0.5f}, color, {0.0f, 1.0f}}, // 11
+        // Prawo (X = 0.5)
+        {{ 0.5f, -0.5f,  0.5f}, color, {0.0f, 0.0f}}, // 12
+        {{ 0.5f, -0.5f, -0.5f}, color, {1.0f, 0.0f}}, // 13
+        {{ 0.5f,  0.5f, -0.5f}, color, {1.0f, 1.0f}}, // 14
+        {{ 0.5f,  0.5f,  0.5f}, color, {0.0f, 1.0f}}, // 15
+        // Góra (Y = -0.5)
+        {{-0.5f, -0.5f, -0.5f}, color, {0.0f, 0.0f}}, // 16
+        {{ 0.5f, -0.5f, -0.5f}, color, {1.0f, 0.0f}}, // 17
+        {{ 0.5f, -0.5f,  0.5f}, color, {1.0f, 1.0f}}, // 18
+        {{-0.5f, -0.5f,  0.5f}, color, {0.0f, 1.0f}}, // 19
+        // Dół (Y = 0.5)
+        {{-0.5f,  0.5f,  0.5f}, color, {0.0f, 0.0f}}, // 20
+        {{ 0.5f,  0.5f,  0.5f}, color, {1.0f, 0.0f}}, // 21
+        {{ 0.5f,  0.5f, -0.5f}, color, {1.0f, 1.0f}}, // 22
+        {{-0.5f,  0.5f, -0.5f}, color, {0.0f, 1.0f}}  // 23
+    };
+
+    for (auto& v : cubeVertices) {
+        v.pos = (v.pos * scale) + offset;
+        vertices.push_back(v);
+    }
+
+    std::vector<uint32_t> cubeIndices = {
+        0, 1, 2, 2, 3, 0,       // Przód
+        4, 5, 6, 6, 7, 4,       // Tył
+        8, 9, 10, 10, 11, 8,    // Lewo
+        12, 13, 14, 14, 15, 12, // Prawo
+        16, 17, 18, 18, 19, 16, // Góra
+        20, 21, 22, 22, 23, 20  // Dół
+    };
+
+    for (auto i : cubeIndices) {
+        indices.push_back(startIndex + i);
+    }
+}
 
     void loadModel() {
         tinyobj::attrib_t attrib;
@@ -354,6 +458,7 @@ private:
             DrawImGui();
             drawValidationLogWindow();
             ImGui::Render();
+            processInput(window);
             drawFrame();
         }
 
@@ -1536,7 +1641,7 @@ private:
 
         ubo.model = model;
 
-        ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+        ubo.view = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
         ubo.proj = glm::perspective(glm::radians(45.0f), swapChainExtent.width / (float) swapChainExtent.height, 0.1f, 10.0f);
         ubo.proj[1][1] *= -1;
 
