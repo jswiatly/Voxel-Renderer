@@ -1433,6 +1433,11 @@ void addCube(glm::vec3 offset, float scale) {
         }
     }
 
+    class VulkanBuffer {
+public:
+private:
+    };
+    
     void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory) {
         VkBufferCreateInfo bufferInfo{};
         bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
@@ -1579,12 +1584,10 @@ void addCube(glm::vec3 offset, float scale) {
 
             for(int x = -5; x < 5; x++) {
     for(int z = -5; z < 5; z++) {
-        // Oblicz macierz modelu (pozycja i wielkość) dla tego kafelka
         glm::mat4 model = glm::mat4(1.0f);
         model = glm::translate(model, glm::vec3(x * 1.0f, -2.0f, z * 1.0f)); 
         model = glm::scale(model, glm::vec3(1.0f)); 
 
-        // Wyślij błyskawicznie macierz na kartę
         vkCmdPushConstants(
             commandBuffer, 
             pipelineLayout, 
@@ -1594,7 +1597,6 @@ void addCube(glm::vec3 offset, float scale) {
             &model
         );
 
-        // Narysuj sześcian na tej konkretnej pozycji!
         vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
     }
 }
