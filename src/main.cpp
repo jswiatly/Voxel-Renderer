@@ -115,7 +115,7 @@ namespace std {
 }
 
 struct UniformBufferObject {
-    alignas(16) glm::mat4 model;
+  //  alignas(16) glm::mat4 model;
     alignas(16) glm::mat4 view;
     alignas(16) glm::mat4 proj;
 };
@@ -233,6 +233,8 @@ private:
         glfwSetCursorPosCallback(window, [](GLFWwindow* window, double xpos, double ypos) {
     auto app = reinterpret_cast<HelloTriangleApplication*>(glfwGetWindowUserPointer(window));
     
+    if (ImGui::GetIO().WantCaptureMouse || app->cursorMode) return;
+
     if (app->firstMouse) {
         app->lastX = xpos;
         app->lastY = ypos;
@@ -287,9 +289,7 @@ private:
         createTextureSampler();
        // loadModel();
 
-        addCube(glm::vec3( 0.2f,  0.5f, 0.0f), 0.5f);
-        addCube(glm::vec3( 0.0f,  0.14f, 0.5f), 0.5f);
-        addCube(glm::vec3( 0.0f, 0.0f, 0.0f), 0.5f);
+        addCube(glm::vec3( 0.0f,  0.0f, 0.0f), 1.0f);
 
         createVertexBuffer();
         createIndexBuffer();
@@ -970,10 +970,18 @@ void addCube(glm::vec3 offset, float scale) {
         dynamicState.dynamicStateCount = static_cast<uint32_t>(dynamicStates.size());
         dynamicState.pDynamicStates = dynamicStates.data();
 
+        VkPushConstantRange pushConstantRange{};
+        pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+        pushConstantRange.offset = 0;
+        pushConstantRange.size = sizeof(glm::mat4); // Miejsce na dokładnie jedną macierz 4x4
+
         VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
         pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
         pipelineLayoutInfo.setLayoutCount = 1;
         pipelineLayoutInfo.pSetLayouts = &descriptorSetLayout;
+
+        pipelineLayoutInfo.pushConstantRangeCount = 1;
+        pipelineLayoutInfo.pPushConstantRanges = &pushConstantRange;
 
         if (vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &pipelineLayout) != VK_SUCCESS) {
             throw std::runtime_error("failed to create pipeline layout!");
@@ -1569,7 +1577,27 @@ void addCube(glm::vec3 offset, float scale) {
 
             vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSets[currentFrame], 0, nullptr);
 
-            vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
+            for(int x = -5; x < 5; x++) {
+    for(int z = -5; z < 5; z++) {
+        // Oblicz macierz modelu (pozycja i wielkość) dla tego kafelka
+        glm::mat4 model = glm::mat4(1.0f);
+        model = glm::translate(model, glm::vec3(x * 1.0f, -2.0f, z * 1.0f)); 
+        model = glm::scale(model, glm::vec3(1.0f)); 
+
+        // Wyślij błyskawicznie macierz na kartę
+        vkCmdPushConstants(
+            commandBuffer, 
+            pipelineLayout, 
+            VK_SHADER_STAGE_VERTEX_BIT, 
+            0, 
+            sizeof(glm::mat4), 
+            &model
+        );
+
+        // Narysuj sześcian na tej konkretnej pozycji!
+        vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
+    }
+}
 
             ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), commandBuffer);
 
@@ -1629,6 +1657,7 @@ void addCube(glm::vec3 offset, float scale) {
         ubo.proj[1][1] *= -1;
         */
 
+        /*
         glm::mat4 model = glm::mat4(1.0f);
 
         model = glm::translate(model, cubePosition);
@@ -1640,6 +1669,7 @@ void addCube(glm::vec3 offset, float scale) {
         model = glm::scale(model, glm::vec3(cubeScale));
 
         ubo.model = model;
+        */
 
         ubo.view = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
         ubo.proj = glm::perspective(glm::radians(45.0f), swapChainExtent.width / (float) swapChainExtent.height, 0.1f, 10.0f);
