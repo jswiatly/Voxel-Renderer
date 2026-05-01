@@ -1435,9 +1435,18 @@ void addCube(glm::vec3 offset, float scale) {
 
     class VulkanBuffer {
 public:
-private:
-    };
+    VulkanBuffer(VulkanContext& context, VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties);
+    ~VulkanBuffer();
+
+    void mapData(void* data, VkDeviceSize size);
     
+    VkBuffer get() const { return buffer; }
+private:
+    VkDevice device;
+    VkBuffer buffer;
+    VkDeviceMemory memory;
+    };
+
     void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory) {
         VkBufferCreateInfo bufferInfo{};
         bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
