@@ -1435,8 +1435,8 @@ void addCube(glm::vec3 offset, float scale) {
 
     class VulkanBuffer {
 public:
-    VulkanBuffer(VulkanContext& context, VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties);
-    ~VulkanBuffer();
+   // VulkanBuffer(VulkanContext& context, VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties);
+  //  ~VulkanBuffer();
 
     void mapData(void* data, VkDeviceSize size);
     
@@ -1978,6 +1978,16 @@ int main() {
     HelloTriangleApplication app;
 
     try {
+        std::cout << R"(
+'##::::'##:'########::'######::'########::::'###::::
+ ##:::: ##: ##.....::'##... ##:... ##..::::'## ##:::
+ ##:::: ##: ##::::::: ##:::..::::: ##:::::'##:. ##::
+ ##:::: ##: ######:::. ######::::: ##::::'##:::. ##:
+. ##:: ##:: ##...:::::..... ##:::: ##:::: #########:
+:. ## ##::: ##:::::::'##::: ##:::: ##:::: ##.... ##:
+::. ###:::: ########:. ######::::: ##:::: ##:::: ##:
+:::...:::::........:::......::::::..:::::..:::::..::)" << "\n\n";
+
         app.run();
     } catch (const std::exception& e) {
         std::cerr << e.what() << std::endl;
