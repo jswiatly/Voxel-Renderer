@@ -115,7 +115,7 @@ namespace std {
 }
 
 struct UniformBufferObject {
-  //  alignas(16) glm::mat4 model;
+    alignas(16) glm::mat4 model;
     alignas(16) glm::mat4 view;
     alignas(16) glm::mat4 proj;
 };
@@ -1653,41 +1653,39 @@ private:
         }
     }
 
-    void updateUniformBuffer(uint32_t currentImage) {
-        static auto startTime = std::chrono::high_resolution_clock::now();
+void updateUniformBuffer(uint32_t currentImage) {
+    // ... [time calculation omitted for brevity] ...
 
-        auto currentTime = std::chrono::high_resolution_clock::now();
-        float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
+    UniformBufferObject ubo{};
 
-        UniformBufferObject ubo{};
+    // 1. Calculate Model Matrix from ImGui variables
+    glm::mat4 model = glm::mat4(1.0f);
+    
+    // Translate first (moves the rotated/scaled cube into world space)
+    model = glm::translate(model, cubePosition);
 
-        /*
-        ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-        ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-        ubo.proj = glm::perspective(glm::radians(45.0f), swapChainExtent.width / (float) swapChainExtent.height, 0.1f, 10.0f);
-        ubo.proj[1][1] *= -1;
-        */
+    // Rotate second (Euler angles: X, then Y, then Z)
+    model = glm::rotate(model, glm::radians(cubeRotation.x), glm::vec3(1.0f, 0.0f, 0.0f));
+    model = glm::rotate(model, glm::radians(cubeRotation.y), glm::vec3(0.0f, 1.0f, 0.0f));
+    model = glm::rotate(model, glm::radians(cubeRotation.z), glm::vec3(0.0f, 0.0f, 1.0f));
 
-        /*
-        glm::mat4 model = glm::mat4(1.0f);
+    // Scale third (scales the cube in its local space)
+    model = glm::scale(model, glm::vec3(cubeScale));
+    
+    ubo.model = model;
 
-        model = glm::translate(model, cubePosition);
+    // 2. Camera / View Matrix
+    ubo.view = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
 
-        model = glm::rotate(model, glm::radians(cubeRotation.x), glm::vec3(1.0f, 0.0f, 0.0f));
-        model = glm::rotate(model, glm::radians(cubeRotation.y), glm::vec3(0.0f, 1.0f, 0.0f));
-        model = glm::rotate(model, glm::radians(cubeRotation.z), glm::vec3(0.0f, 0.0f, 1.0f));
+    // 3. Projection Matrix
+    ubo.proj = glm::perspective(glm::radians(45.0f), swapChainExtent.width / (float) swapChainExtent.height, 0.1f, 10.0f);
+    
+    // Vulkan Y-axis flip (GLM is designed for OpenGL where Y points up)
+    ubo.proj[1][1] *= -1;
 
-        model = glm::scale(model, glm::vec3(cubeScale));
-
-        ubo.model = model;
-        */
-
-        ubo.view = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
-        ubo.proj = glm::perspective(glm::radians(45.0f), swapChainExtent.width / (float) swapChainExtent.height, 0.1f, 10.0f);
-        ubo.proj[1][1] *= -1;
-
-        memcpy(uniformBuffersMapped[currentImage], &ubo, sizeof(ubo));
-    }
+    // 4. Update the buffer
+    memcpy(uniformBuffersMapped[currentImage], &ubo, sizeof(ubo));
+}
 
     void drawFrame() {
         vkWaitForFences(device, 1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
