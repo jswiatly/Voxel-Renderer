@@ -3,9 +3,7 @@
 
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
-#define GLM_ENABLE_EXPERIMENTAL    
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
+#define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/hash.hpp>
 
 #define STB_IMAGE_IMPLEMENTATION
@@ -36,6 +34,7 @@
 #include "imgui_impl_vulkan.h"
 #include "core/Device.hpp"
 #include "core/Window.hpp"
+#include "scene/Camera.hpp"
 
 const std::string MODEL_PATH = "models/viking_room.obj";
 const std::string TEXTURE_PATH = "textures/test.jpg";
