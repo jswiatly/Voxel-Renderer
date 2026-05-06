@@ -242,8 +242,8 @@ private:
             float yoffset = app->lastY - ypos;
     
             app->lastX = xpos; app->lastY = ypos;
-            app->camera.processMouseMovement(xoffset, yoffset); 
-        });
+        app->camera.processMouseMovement(xoffset, yoffset); 
+    });
     }
 
     static void framebufferResizeCallback(GLFWwindow* window, int width, int height) {
@@ -1700,10 +1700,12 @@ private:
         auto currentTime = std::chrono::high_resolution_clock::now();
         float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
         UniformBufferObject ubo{};
-        ubo.view = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
 
-        ubo.view = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
+        ubo.view = glm::lookAt(camera.position, camera.position + camera.front, camera.up);
         ubo.proj = glm::perspective(glm::radians(45.0f), swapChainExtent.width / (float) swapChainExtent.height, 0.1f, 10.0f);
+    
+        ubo.proj[1][1] *= -1; 
+    
         memcpy(uniformBuffersMapped[currentImage], &ubo, sizeof(ubo));
 }
 
