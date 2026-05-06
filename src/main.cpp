@@ -446,6 +446,69 @@ void addCube(glm::vec3 offset, float scale) {
                 cubeScale = 1.0f;
             }
             ImGui::End();
+
+            ImGui::Begin("3D Orientation", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoBackground);
+
+ImDrawList* draw_list = ImGui::GetWindowDrawList();
+ImVec2 p = ImGui::GetCursorScreenPos();
+
+float size = 120.0f;
+float axis_length = 45.0f;
+ImVec2 center = ImVec2(p.x + size / 2.0f, p.y + size / 2.0f);
+
+draw_list->AddCircleFilled(center, axis_length + 15.0f, IM_COL32(20, 20, 20, 150));
+glm::mat4 view = glm::mat4(1.0f);
+view = glm::rotate(view, glm::radians(camera.pitch), glm::vec3(1.0f, 0.0f, 0.0f));
+view = glm::rotate(view, glm::radians(camera.yaw),   glm::vec3(0.0f, 1.0f, 0.0f));
+
+struct Axis {
+    glm::vec3 world_dir;
+    ImU32 color;
+    const char* label;
+    glm::vec2 screen_pos;
+    float depth;
+};
+
+Axis axes[3] = {
+    { glm::vec3(1.0f, 0.0f, 0.0f), IM_COL32(255, 50, 50, 255),  "X" },
+    { glm::vec3(0.0f, 1.0f, 0.0f), IM_COL32(50, 255, 50, 255),  "Y" },
+    { glm::vec3(0.0f, 0.0f, 1.0f), IM_COL32(50, 100, 255, 255), "Z" }
+};
+
+for (int i = 0; i < 3; i++) {
+    glm::vec4 view_dir = view * glm::vec4(axes[i].world_dir, 0.0f);
+
+    axes[i].screen_pos = glm::vec2(
+        center.x + view_dir.x * axis_length,
+        center.y - view_dir.y * axis_length
+    );
+    axes[i].depth = view_dir.z; 
+}
+
+std::sort(std::begin(axes), std::end(axes), [](const Axis& a, const Axis& b) {
+    return a.depth < b.depth;
+});
+for (int i = 0; i < 3; i++) {
+    ImVec2 end_pos = ImVec2(axes[i].screen_pos.x, axes[i].screen_pos.y);
+    float thickness = (axes[i].depth > 0.0f) ? 3.5f : 1.5f;
+    draw_list->AddLine(center, end_pos, axes[i].color, thickness);
+    ImVec2 text_size = ImGui::CalcTextSize(axes[i].label);
+    glm::vec2 dir_norm = glm::normalize(axes[i].screen_pos - glm::vec2(center.x, center.y));
+    ImVec2 text_pos = ImVec2(
+        end_pos.x + dir_norm.x * 12.0f - text_size.x / 2.0f,
+        end_pos.y + dir_norm.y * 12.0f - text_size.y / 2.0f
+    );
+    ImU32 text_color = axes[i].color;
+    if (axes[i].depth < 0.0f) {
+        text_color = (text_color & 0x00FFFFFF) | 0x80000000;
+    }
+
+    draw_list->AddText(text_pos, text_color, axes[i].label);
+}
+draw_list->AddCircleFilled(center, 3.0f, IM_COL32(255, 255, 255, 255));
+
+ImGui::Dummy(ImVec2(size, size)); 
+ImGui::End();
     }
 
 
