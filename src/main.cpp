@@ -231,37 +231,19 @@ private:
         glfwSetWindowUserPointer(window, this);
 
         glfwSetCursorPosCallback(window, [](GLFWwindow* window, double xpos, double ypos) {
-    auto app = reinterpret_cast<HelloTriangleApplication*>(glfwGetWindowUserPointer(window));
+            auto app = reinterpret_cast<HelloTriangleApplication*>(glfwGetWindowUserPointer(window));
+            if (ImGui::GetIO().WantCaptureMouse || app->cursorMode) return;
+
+            if (app->firstMouse) {
+                app->lastX = xpos; app->lastY = ypos; app->firstMouse = false;
+            }
+
+            float xoffset = xpos - app->lastX;
+            float yoffset = app->lastY - ypos;
     
-    if (ImGui::GetIO().WantCaptureMouse || app->cursorMode) return;
-
-    if (app->firstMouse) {
-        app->lastX = xpos;
-        app->lastY = ypos;
-        app->firstMouse = false;
-    }
-
-    float xoffset = xpos - app->lastX;
-    float yoffset = app->lastY - ypos;
-    app->lastX = xpos;
-    app->lastY = ypos;
-
-    float sensitivity = 0.1f;
-    xoffset *= sensitivity;
-    yoffset *= sensitivity;
-
-    app->yaw += xoffset;
-    app->pitch += yoffset;
-
-    if (app->pitch > 89.0f) app->pitch = 89.0f;
-    if (app->pitch < -89.0f) app->pitch = -89.0f;
-
-    glm::vec3 front;
-    front.x = cos(glm::radians(app->yaw)) * cos(glm::radians(app->pitch));
-    front.y = sin(glm::radians(app->pitch));
-    front.z = sin(glm::radians(app->yaw)) * cos(glm::radians(app->pitch));
-    app->cameraFront = glm::normalize(front);
-});
+            app->lastX = xpos; app->lastY = ypos;
+            app->camera.processMouseMovement(xoffset, yoffset); 
+        });
     }
 
     static void framebufferResizeCallback(GLFWwindow* window, int width, int height) {
@@ -310,32 +292,28 @@ private:
     bool fKeyPressed = glfwGetKey(window, GLFW_KEY_F) == GLFW_PRESS;
     
     if (fKeyPressed && !MouseModeKeyWasPressed) {
-        cursorMode = !cursorMode; // Zmień tryb
+        cursorMode = !cursorMode;
         
         if (cursorMode) {
-            // TRYB GUI: Pokazujemy kursor
             glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
         } else {
-            // TRYB KAMERY: Ukrywamy kursor i wracamy do latania
             glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-            firstMouse = true; // Resetujemy "pierwszy ruch myszy", żeby kamera nie szarpnęła
+            firstMouse = true;
         }
     }
     MouseModeKeyWasPressed = fKeyPressed;
 
-    // WAŻNE: Ruch kamery (WASD) powinien działać tylko, gdy NIE jesteśmy w trybie GUI
     if (!cursorMode) {
-        float cameraSpeed = 2.5f * deltaTime;
-        if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) cameraPos += cameraSpeed * cameraFront;
-        if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) cameraPos -= cameraSpeed * cameraFront;
-        if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) cameraPos -= glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed;
-        if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) cameraPos += glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed;
+    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) camera.processKeyboard(0, deltaTime);
+    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) camera.processKeyboard(1, deltaTime);
+    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) camera.processKeyboard(2, deltaTime);
+    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) camera.processKeyboard(3, deltaTime);
     }
 }
 
 void addCube(glm::vec3 offset, float scale) {
     uint32_t startIndex = static_cast<uint32_t>(vertices.size());
-    glm::vec3 color = {1.0f, 1.0f, 1.0f}; // Biały, żeby nie barwił tekstury
+    glm::vec3 color = {1.0f, 1.0f, 1.0f};
 
     std::vector<Vertex> cubeVertices = {
         // Pozycja (x, y, z)          // Kolor            // UV (u, v)
