@@ -31,6 +31,13 @@ class VulkanDevice {
         VulkanDevice();
         ~VulkanDevice();
     private:
-        VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
-        VkDevice device = VK_NULL_HANDLE;
+        VkPhysicalDevice physicalDevice{ VK_NULL_HANDLE };;
+	    VkDevice logicalDevice{ VK_NULL_HANDLE };
+	    VkPhysicalDeviceProperties properties{};
+	    VkPhysicalDeviceFeatures features{};
+	    VkPhysicalDeviceFeatures enabledFeatures{};
+	    VkPhysicalDeviceMemoryProperties memoryProperties{};
+	    std::vector<VkQueueFamilyProperties> queueFamilyProperties{};
+	    std::vector<std::string> supportedExtensions{};
+	    VkCommandPool commandPool{ VK_NULL_HANDLE };
 };
