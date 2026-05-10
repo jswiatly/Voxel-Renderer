@@ -4,7 +4,26 @@
 #include <stdexcept>
 #include <cstring>
 
-void pickPhysicalDevice() {
+const std::vector<const char*> validationLayers = {
+    "VK_LAYER_KHRONOS_validation"
+};
+
+const std::vector<const char*> deviceExtensions = {
+    VK_KHR_SWAPCHAIN_EXTENSION_NAME
+};
+
+VulkanDevice::VulkanDevice(VkInstance instance) : instance(instance) {
+    pickPhysicalDevice();
+    createLogicalDevice();
+}
+
+VulkanDevice::~VulkanDevice() {
+    if (logicalDevice != VK_NULL_HANDLE) {
+        vkDestroyDevice(logicalDevice, nullptr);
+    }
+}
+
+void VulkanDevice::pickPhysicalDevice() {
         uint32_t deviceCount = 0;
         vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr);
 
@@ -27,7 +46,7 @@ void pickPhysicalDevice() {
         }
     }
 
-    void createLogicalDevice() {
+    void VulkanDevice::createLogicalDevice() {
         QueueFamilyIndices indices = findQueueFamilies(physicalDevice);
 
         std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
