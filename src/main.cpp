@@ -32,6 +32,7 @@
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_vulkan.h"
+#define VULKAN_DEVICE_IMPLEMENTATION
 #include "core/Device.hpp"
 #include "core/Window.hpp"
 #include "scene/Camera.hpp"
@@ -142,6 +143,7 @@ private:
     Camera camera;
     VulkanDevice vulkanDevice;
     GLFWwindow* window;
+    VmaAllocator allocator;
 
     VkInstance instance;
     VkDebugUtilsMessengerEXT debugMessenger;

@@ -1,7 +1,13 @@
 #pragma once
 
+#include <vulkan/vulkan.h>
 #include <vector>
 #include <optional>
+#include <set>
+#include <stdexcept>
+
+#define VMA_IMPLEMENTATION
+#include "vk_mem_alloc.h"
 
 struct QueueFamilyIndices {
     std::optional<uint32_t> graphicsFamily;
@@ -41,6 +47,7 @@ struct VulkanDevice2
 	// Contains queue family indices 
 };
 
+#ifdef VULKAN_DEVICE_IMPLEMENTATION
 
 class VulkanDevice {
     public:
@@ -63,3 +70,5 @@ class VulkanDevice {
 	    std::vector<std::string> supportedExtensions{};
 	    VkCommandPool commandPool{ VK_NULL_HANDLE };
 };
+
+#endif
