@@ -265,6 +265,15 @@ private:
     }
 
     void initVulkan() {
+
+        VmaAllocatorCreateInfo allocatorInfo = {
+            .physicalDevice = physicalDevice,
+            .device = device,
+            .instance = instance,
+            .vulkanApiVersion = VK_API_VERSION_1_3
+        };
+        vmaCreateAllocator(&allocatorInfo, &allocator);
+        
         createInstance();
         setupDebugMessenger();
         createSurface();
@@ -624,7 +633,7 @@ ImGui::End();
             .applicationVersion = VK_MAKE_VERSION(1, 0, 0),
             .pEngineName = "No Engine",
             .engineVersion = VK_MAKE_VERSION(1, 0, 0),
-            .apiVersion = VK_API_VERSION_1_0
+            .apiVersion = VK_API_VERSION_1_3
         };
 
         VkInstanceCreateInfo createInfo{};
@@ -738,7 +747,14 @@ ImGui::End();
         VkPhysicalDeviceFeatures deviceFeatures{};
         deviceFeatures.samplerAnisotropy = VK_TRUE;
 
+        VkPhysicalDeviceVulkan13Features features13{
+            .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES,
+            .synchronization2 = VK_TRUE,
+            .dynamicRendering = VK_TRUE
+        };
+
         VkDeviceCreateInfo createInfo{};
+        createInfo.pNext = &features13;
         createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
 
         createInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());
