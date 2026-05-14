@@ -265,15 +265,6 @@ private:
     }
 
     void initVulkan() {
-
-        VmaAllocatorCreateInfo allocatorInfo = {
-            .physicalDevice = physicalDevice,
-            .device = device,
-            .instance = instance,
-            .vulkanApiVersion = VK_API_VERSION_1_3
-        };
-        vmaCreateAllocator(&allocatorInfo, &allocator);
-        
         createInstance();
         setupDebugMessenger();
         createSurface();
@@ -291,9 +282,17 @@ private:
         createTextureImage();
         createTextureImageView();
         createTextureSampler();
-        loadModel();
+        // loadModel();
+        VmaAllocatorCreateInfo allocatorInfo = {
+            .physicalDevice = physicalDevice,
+            .device = device,
+            .instance = instance,
+            .vulkanApiVersion = VK_API_VERSION_1_3
+        };
+        vmaCreateAllocator(&allocatorInfo, &allocator);
 
-        addCube(glm::vec3( 0.0f,  0.0f, 0.0f), 1.0f);
+        // addCube(glm::vec3( 0.0f,  0.0f, 0.0f), 1.0f);
+        generateMinecraftScene();
 
         createVertexBuffer();
         createIndexBuffer();
@@ -333,38 +332,30 @@ private:
     }
 }
 
-void addCube(glm::vec3 offset, float scale) {
+void addCube(glm::vec3 offset, glm::vec3 color, float scale = 1.0f) {
     uint32_t startIndex = static_cast<uint32_t>(vertices.size());
-    glm::vec3 color = {1.0f, 1.0f, 1.0f};
 
     std::vector<Vertex> cubeVertices = {
-        // Pozycja (x, y, z)          // Kolor            // UV (u, v)
-        // Przód (Z = 0.5)
         {{-0.5f, -0.5f,  0.5f}, color, {0.0f, 0.0f}}, // 0
         {{ 0.5f, -0.5f,  0.5f}, color, {1.0f, 0.0f}}, // 1
         {{ 0.5f,  0.5f,  0.5f}, color, {1.0f, 1.0f}}, // 2
         {{-0.5f,  0.5f,  0.5f}, color, {0.0f, 1.0f}}, // 3
-        // Tył (Z = -0.5)
         {{ 0.5f, -0.5f, -0.5f}, color, {0.0f, 0.0f}}, // 4
         {{-0.5f, -0.5f, -0.5f}, color, {1.0f, 0.0f}}, // 5
         {{-0.5f,  0.5f, -0.5f}, color, {1.0f, 1.0f}}, // 6
         {{ 0.5f,  0.5f, -0.5f}, color, {0.0f, 1.0f}}, // 7
-        // Lewo (X = -0.5)
         {{-0.5f, -0.5f, -0.5f}, color, {0.0f, 0.0f}}, // 8
         {{-0.5f, -0.5f,  0.5f}, color, {1.0f, 0.0f}}, // 9
         {{-0.5f,  0.5f,  0.5f}, color, {1.0f, 1.0f}}, // 10
         {{-0.5f,  0.5f, -0.5f}, color, {0.0f, 1.0f}}, // 11
-        // Prawo (X = 0.5)
         {{ 0.5f, -0.5f,  0.5f}, color, {0.0f, 0.0f}}, // 12
         {{ 0.5f, -0.5f, -0.5f}, color, {1.0f, 0.0f}}, // 13
         {{ 0.5f,  0.5f, -0.5f}, color, {1.0f, 1.0f}}, // 14
         {{ 0.5f,  0.5f,  0.5f}, color, {0.0f, 1.0f}}, // 15
-        // Góra (Y = -0.5)
         {{-0.5f, -0.5f, -0.5f}, color, {0.0f, 0.0f}}, // 16
         {{ 0.5f, -0.5f, -0.5f}, color, {1.0f, 0.0f}}, // 17
         {{ 0.5f, -0.5f,  0.5f}, color, {1.0f, 1.0f}}, // 18
         {{-0.5f, -0.5f,  0.5f}, color, {0.0f, 1.0f}}, // 19
-        // Dół (Y = 0.5)
         {{-0.5f,  0.5f,  0.5f}, color, {0.0f, 0.0f}}, // 20
         {{ 0.5f,  0.5f,  0.5f}, color, {1.0f, 0.0f}}, // 21
         {{ 0.5f,  0.5f, -0.5f}, color, {1.0f, 1.0f}}, // 22
@@ -377,12 +368,12 @@ void addCube(glm::vec3 offset, float scale) {
     }
 
     std::vector<uint32_t> cubeIndices = {
-        0, 1, 2, 2, 3, 0,       // Przód
-        4, 5, 6, 6, 7, 4,       // Tył
-        8, 9, 10, 10, 11, 8,    // Lewo
-        12, 13, 14, 14, 15, 12, // Prawo
-        16, 17, 18, 18, 19, 16, // Góra
-        20, 21, 22, 22, 23, 20  // Dół
+        0, 1, 2, 2, 3, 0,
+        4, 5, 6, 6, 7, 4,
+        8, 9, 10, 10, 11, 8,
+        12, 13, 14, 14, 15, 12,
+        16, 17, 18, 18, 19, 16,
+        20, 21, 22, 22, 23, 20 
     };
 
     for (auto i : cubeIndices) {
@@ -1676,26 +1667,20 @@ private:
 
             vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT32);
 
-            vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSets[currentFrame], 0, nullptr);
+           vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSets[currentFrame], 0, nullptr);
 
-            for(int x = -5; x < 5; x++) {
-    for(int z = -5; z < 5; z++) {
-        glm::mat4 model = glm::mat4(1.0f);
-        model = glm::translate(model, glm::vec3(x * 1.0f, -2.0f, z * 1.0f)); 
-        model = glm::scale(model, glm::vec3(1.0f)); 
+            glm::mat4 model = glm::mat4(1.0f); 
 
-        vkCmdPushConstants(
-            commandBuffer, 
-            pipelineLayout, 
-            VK_SHADER_STAGE_VERTEX_BIT, 
-            0, 
-            sizeof(glm::mat4), 
-            &model
-        );
+            vkCmdPushConstants(
+                commandBuffer, 
+                pipelineLayout, 
+                VK_SHADER_STAGE_VERTEX_BIT, 
+                0, 
+                sizeof(glm::mat4), 
+                &model
+            );
 
-        vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
-    }
-}
+            vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
 
             ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), commandBuffer);
 
@@ -1705,6 +1690,23 @@ private:
             throw std::runtime_error("failed to record command buffer!");
         }
     }
+
+    void generateMinecraftScene() {
+    vertices.clear();
+    indices.clear();
+
+    int gridSize = 20;
+    
+    for (int x = -gridSize / 2; x < gridSize / 2; x++) {
+        for (int z = -gridSize / 2; z < gridSize / 2; z++) {
+            float height = std::sin(x * 0.3f) * std::cos(z * 0.3f) * 3.0f; 
+            int blockY = static_cast<int>(std::round(height));
+            glm::vec3 pos(x, blockY, z);
+            glm::vec3 color(0.2f, 0.8f - (blockY * 0.1f), 0.2f); 
+            addCube(pos, color);
+        }
+    }
+}
 
     void createSyncObjects() {
         imageAvailableSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
