@@ -36,6 +36,7 @@
 #include "core/Device.hpp"
 #include "core/Window.hpp"
 #include "scene/Camera.hpp"
+#include <format>
 
 const std::string MODEL_PATH = "models/viking_room.obj";
 const std::string TEXTURE_PATH = "textures/test.jpg";
@@ -841,15 +842,15 @@ ImGui::End();
 	std::string displayText = log.message;	
 	if (log.severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT){
 	color = ImVec4(1.0f, 0.4f, 0.4f, 1.0f);
-	displayText = "[ERROR] " + displayText;
+	displayText = std::format("[ERROR] {}", log.message);
 	} else if (log.severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT){
 	color = ImVec4(1.0f, 0.8f, 0.3f, 1.0f);
-	displayText = "[WARNING] " + displayText;
+	displayText = std::format("[WARNING] {}", log.message);
 	} else if (log.severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT){
 	color = ImVec4(0.4f, 0.8f, 0.3f, 1.0f);
-	displayText = "[INFO] " + displayText;
+	displayText = std::format("[INFO] {}", log.message);
 	} else {
-	displayText = "[OTHER] " + displayText;
+	displayText = std::format("[OTHER] {}", log.message);
 	color = ImVec4(0.7f, 0.7f, 0.7f, 1.0f);
 	}
 
