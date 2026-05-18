@@ -23,7 +23,7 @@
 #include <array>
 #include <set>
 #include <unordered_map>
-
+// #include <format> <- compiler is freaky about this
 #include <mutex>
 
 #include "imgui.h"
@@ -33,7 +33,6 @@
 #include "core/Device.hpp"
 #include "core/Window.hpp"
 #include "scene/Camera.hpp"
-#include <format>
 
 const std::string MODEL_PATH = "models/viking_room.obj";
 const std::string TEXTURE_PATH = "textures/test.jpg";
@@ -268,6 +267,15 @@ private:
         createSurface();
         pickPhysicalDevice();
         createLogicalDevice();
+
+        VmaAllocatorCreateInfo allocatorInfo = {
+            .physicalDevice = physicalDevice,
+            .device = device,
+            .instance = instance,
+            .vulkanApiVersion = VK_API_VERSION_1_3
+        };
+        vmaCreateAllocator(&allocatorInfo, &allocator);
+
         createSwapChain();
         createImageViews();
         createRenderPass();
@@ -281,13 +289,7 @@ private:
         createTextureImageView();
         createTextureSampler();
         // loadModel();
-        VmaAllocatorCreateInfo allocatorInfo = {
-            .physicalDevice = physicalDevice,
-            .device = device,
-            .instance = instance,
-            .vulkanApiVersion = VK_API_VERSION_1_3
-        };
-        vmaCreateAllocator(&allocatorInfo, &allocator);
+        DumpVMAMemoryStats(allocator, "vma_stats_init.json");
         generateMinecraftScene();
 
         createVertexBuffer();
@@ -833,15 +835,15 @@ ImGui::End();
 	std::string displayText = log.message;	
 	if (log.severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT){
 	color = ImVec4(1.0f, 0.4f, 0.4f, 1.0f);
-	displayText = std::format("[ERROR] {}", log.message);
+	displayText = "[ERROR] " + log.message;
 	} else if (log.severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT){
 	color = ImVec4(1.0f, 0.8f, 0.3f, 1.0f);
-	displayText = std::format("[WARNING] {}", log.message);
+	displayText = "[WARNING] " + log.message;
 	} else if (log.severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT){
 	color = ImVec4(0.4f, 0.8f, 0.3f, 1.0f);
-	displayText = std::format("[INFO] {}", log.message);
+	displayText = "[INFO] " + log.message;
 	} else {
-	displayText = std::format("[OTHER] {}", log.message);
+	displayText = "[OTHER] " + log.message;
 	color = ImVec4(0.7f, 0.7f, 0.7f, 1.0f);
 	}
 
@@ -1164,22 +1166,22 @@ ImGui::End();
 
         VkBuffer stagingBuffer;
         VmaAllocation stagingBufferAllocation;
-        createBuffer(imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferAllocation);
+        createBuffer(imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_AUTO, stagingBuffer, stagingBufferAllocation);
 
         void* data;
-        vmaMapMemory(device, stagingBufferAllocation, 0, imageSize, 0, &data);
+        vmaMapMemory(allocator, stagingBufferAllocation, &data);
         memcpy(data, pixels, static_cast<size_t>(imageSize));
-        vmaUnmapMemory(device, stagingBufferAllocation);
+        vmaUnmapMemory(allocator, stagingBufferAllocation);
 
         stbi_image_free(pixels);
 
-        createImage(texWidth, texHeight, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, textureImage, textureImageMemory);
+        createImage(texWidth, texHeight, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VMA_MEMORY_USAGE_AUTO, textureImage, textureImageAllocation);
 
         transitionImageLayout(textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
             copyBufferToImage(stagingBuffer, textureImage, static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight));
         transitionImageLayout(textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
-        vkDestroyBuffer(device, stagingBuffer, nullptr);
+        vmaDestroyBuffer(allocator, stagingBuffer, stagingBufferAllocation);
     }
 
     void createTextureImageView() {
@@ -1190,20 +1192,21 @@ ImGui::End();
         VkPhysicalDeviceProperties properties{};
         vkGetPhysicalDeviceProperties(physicalDevice, &properties);
 
-        VkSamplerCreateInfo samplerInfo{};
-        samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-        samplerInfo.magFilter = VK_FILTER_LINEAR;
-        samplerInfo.minFilter = VK_FILTER_LINEAR;
-        samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-        samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-        samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-        samplerInfo.anisotropyEnable = VK_TRUE;
-        samplerInfo.maxAnisotropy = properties.limits.maxSamplerAnisotropy;
-        samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
-        samplerInfo.unnormalizedCoordinates = VK_FALSE;
-        samplerInfo.compareEnable = VK_FALSE;
-        samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
-        samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+        VkSamplerCreateInfo samplerInfo{
+            .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
+            .magFilter = VK_FILTER_LINEAR,
+            .minFilter = VK_FILTER_LINEAR,
+            .mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR,
+            .addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT,
+            .addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT,
+            .addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT,
+            .anisotropyEnable = VK_TRUE,
+            .maxAnisotropy = properties.limits.maxSamplerAnisotropy,
+            .compareEnable = VK_FALSE,
+            .compareOp = VK_COMPARE_OP_ALWAYS,
+            .borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK,
+            .unnormalizedCoordinates = VK_FALSE
+        };
 
         if (vkCreateSampler(device, &samplerInfo, nullptr, &textureSampler) != VK_SUCCESS) {
             throw std::runtime_error("failed to create texture sampler!");
@@ -1211,16 +1214,20 @@ ImGui::End();
     }
 
     VkImageView createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags) {
-        VkImageViewCreateInfo viewInfo{};
-        viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-        viewInfo.image = image;
-        viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-        viewInfo.format = format;
-        viewInfo.subresourceRange.aspectMask = aspectFlags;
-        viewInfo.subresourceRange.baseMipLevel = 0;
-        viewInfo.subresourceRange.levelCount = 1;
-        viewInfo.subresourceRange.baseArrayLayer = 0;
-        viewInfo.subresourceRange.layerCount = 1;
+        VkImageViewCreateInfo viewInfo{
+            .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+            .image = image,
+            .viewType = VK_IMAGE_VIEW_TYPE_2D,
+            .format = format,
+            // Standard C++20 nested designated initializer syntax
+            .subresourceRange = {
+                .aspectMask = aspectFlags,
+                .baseMipLevel = 0,
+                .levelCount = 1,
+                .baseArrayLayer = 0,
+                .layerCount = 1
+            }
+        };
 
         VkImageView imageView;
         if (vkCreateImageView(device, &viewInfo, nullptr, &imageView) != VK_SUCCESS) {
@@ -1329,7 +1336,7 @@ ImGui::End();
 
         VkBuffer stagingBuffer;
         VmaAllocation stagingBufferAllocation;
-        createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferAllocation);
+        createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_AUTO, stagingBuffer, stagingBufferAllocation);
 
         void* data;
         vmaMapMemory(allocator, stagingBufferAllocation, &data);
@@ -1337,7 +1344,7 @@ ImGui::End();
 
         vmaUnmapMemory(allocator, stagingBufferAllocation);
 
-        createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, vertexBuffer, vertexBufferAllocation);
+        createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VMA_MEMORY_USAGE_AUTO, vertexBuffer, vertexBufferAllocation);
 
         copyBuffer(stagingBuffer, vertexBuffer, bufferSize);
         vmaDestroyBuffer(allocator, stagingBuffer, stagingBufferAllocation);
@@ -1348,30 +1355,49 @@ ImGui::End();
 
         VkBuffer stagingBuffer;
         VmaAllocation stagingBufferAllocation;
-        createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferAllocation);
+        createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_AUTO, stagingBuffer, stagingBufferAllocation);
 
         void* data;
-        vmaMapMemory(device, stagingBufferAllocation, 0, bufferSize, 0, &data);
+        vmaMapMemory(allocator, stagingBufferAllocation, &data);
         memcpy(data, indices.data(), (size_t) bufferSize);
-        vmaUnmapMemory(device, stagingBufferAllocation);
+        vmaUnmapMemory(allocator, stagingBufferAllocation);
 
-        createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, indexBuffer, indexBufferAllocation);
+        createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VMA_MEMORY_USAGE_AUTO, indexBuffer, indexBufferAllocation);
 
         copyBuffer(stagingBuffer, indexBuffer, bufferSize);
         vmaDestroyBuffer(allocator, stagingBuffer, stagingBufferAllocation);
     }
 
+    void DumpVMAMemoryStats(VmaAllocator allocator, const char* filename) {
+    char* statsString = nullptr;
+    
+    vmaBuildStatsString(allocator, &statsString, VK_TRUE);
+
+    std::ofstream outFile(filename);
+    if (outFile.is_open()) {
+        outFile << statsString;
+        outFile.close();
+        std::cout << "Statystyki VMA zapisane do: " << filename << std::endl;
+    } else {
+        std::cerr << "Błąd: Nie można otworzyć pliku do zapisu!" << std::endl;
+    }
+
+    vmaFreeStatsString(allocator, statsString);
+    }
+
     void createUniformBuffers() {
-        VkDeviceSize bufferSize = sizeof(UniformBufferObject);
+    VkDeviceSize bufferSize = sizeof(UniformBufferObject);
 
-        uniformBuffers.resize(MAX_FRAMES_IN_FLIGHT);
-        uniformBuffersMemory.resize(MAX_FRAMES_IN_FLIGHT);
-        uniformBuffersMapped.resize(MAX_FRAMES_IN_FLIGHT);
+    uniformBuffers.resize(MAX_FRAMES_IN_FLIGHT);
+    uniformBuffersAllocation.resize(MAX_FRAMES_IN_FLIGHT);
+    uniformBuffersMapped.resize(MAX_FRAMES_IN_FLIGHT);
 
-        for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-            createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniformBuffers[i], uniformBuffersMemory[i]);
-
-            vkMapMemory(device, uniformBuffersMemory[i], 0, bufferSize, 0, &uniformBuffersMapped[i]);
+    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+        VmaAllocationCreateFlags flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
+        
+        createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_AUTO, uniformBuffers[i], uniformBuffersAllocation[i], flags);
+        
+        vmaMapMemory(allocator, uniformBuffersAllocation[i], &uniformBuffersMapped[i]);
         }
     }
 
@@ -1501,7 +1527,7 @@ private:
     VkDeviceMemory memory;
     };
 
-    void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VmaMemoryUsage vmaUsage, VkBuffer& buffer, VmaAllocation& allocation) {
+    void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VmaMemoryUsage vmaUsage, VkBuffer& buffer, VmaAllocation& allocation, VmaAllocationCreateFlags vmaFlags = 0) {
         VkBufferCreateInfo bufferInfo{
             .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
             .size = size,
@@ -1510,7 +1536,8 @@ private:
         };
 
         VmaAllocationCreateInfo allocInfo{
-            .usage = vmaUsage;
+            .flags = vmaFlags,
+            .usage = vmaUsage
         };
 
         if (vmaCreateBuffer(allocator, &bufferInfo, &allocInfo, &buffer, &allocation, nullptr) != VK_SUCCESS) {
