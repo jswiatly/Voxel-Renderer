@@ -1166,7 +1166,7 @@ ImGui::End();
 
         VkBuffer stagingBuffer;
         VmaAllocation stagingBufferAllocation;
-        createBuffer(imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_AUTO, stagingBuffer, stagingBufferAllocation);
+        createBuffer(imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_AUTO, stagingBuffer, stagingBufferAllocation, VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT);
 
         void* data;
         vmaMapMemory(allocator, stagingBufferAllocation, &data);
@@ -1336,7 +1336,7 @@ ImGui::End();
 
         VkBuffer stagingBuffer;
         VmaAllocation stagingBufferAllocation;
-        createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_AUTO, stagingBuffer, stagingBufferAllocation);
+        createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_AUTO, stagingBuffer, stagingBufferAllocation, VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT);
 
         void* data;
         vmaMapMemory(allocator, stagingBufferAllocation, &data);
@@ -1355,7 +1355,7 @@ ImGui::End();
 
         VkBuffer stagingBuffer;
         VmaAllocation stagingBufferAllocation;
-        createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_AUTO, stagingBuffer, stagingBufferAllocation);
+        createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_AUTO, stagingBuffer, stagingBufferAllocation, VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT);
 
         void* data;
         vmaMapMemory(allocator, stagingBufferAllocation, &data);
@@ -1377,9 +1377,9 @@ ImGui::End();
     if (outFile.is_open()) {
         outFile << statsString;
         outFile.close();
-        std::cout << "Statystyki VMA zapisane do: " << filename << std::endl;
+        std::cout << "VMA stats saved to: " << filename << std::endl;
     } else {
-        std::cerr << "Błąd: Nie można otworzyć pliku do zapisu!" << std::endl;
+        std::cerr << "ERROR: Cant open save file!" << std::endl;
     }
 
     vmaFreeStatsString(allocator, statsString);
@@ -1393,13 +1393,18 @@ ImGui::End();
     uniformBuffersMapped.resize(MAX_FRAMES_IN_FLIGHT);
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+        // Define the access flags
         VmaAllocationCreateFlags flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
         
-        createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_AUTO, uniformBuffers[i], uniformBuffersAllocation[i], flags);
+        // Pass 'flags' into the newly updated function signature
+        createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_AUTO, 
+                     uniformBuffers[i], uniformBuffersAllocation[i], flags);
         
+        // Because VMA now knows the CPU needs access, it will pick a HOST_VISIBLE memory heap,
+        // and this manual mapping call will succeed perfectly without errors!
         vmaMapMemory(allocator, uniformBuffersAllocation[i], &uniformBuffersMapped[i]);
-        }
     }
+}
 
     void createDescriptorPool() {
         std::array<VkDescriptorPoolSize, 2> poolSizes{};
@@ -1527,23 +1532,24 @@ private:
     VkDeviceMemory memory;
     };
 
-    void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VmaMemoryUsage vmaUsage, VkBuffer& buffer, VmaAllocation& allocation, VmaAllocationCreateFlags vmaFlags = 0) {
-        VkBufferCreateInfo bufferInfo{
-            .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-            .size = size,
-            .usage = usage,
-            .sharingMode = VK_SHARING_MODE_EXCLUSIVE
-        };
+    void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VmaMemoryUsage vmaUsage, 
+                  VkBuffer& buffer, VmaAllocation& allocation, VmaAllocationCreateFlags vmaFlags = 0) {
+    VkBufferCreateInfo bufferInfo{
+        .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+        .size = size,
+        .usage = usage,
+        .sharingMode = VK_SHARING_MODE_EXCLUSIVE
+    };
 
-        VmaAllocationCreateInfo allocInfo{
-            .flags = vmaFlags,
-            .usage = vmaUsage
-        };
+    VmaAllocationCreateInfo allocInfo{
+        .flags = vmaFlags, // Now the flags passed from the caller are actually used!
+        .usage = vmaUsage
+    };
 
-        if (vmaCreateBuffer(allocator, &bufferInfo, &allocInfo, &buffer, &allocation, nullptr) != VK_SUCCESS) {
+    if (vmaCreateBuffer(allocator, &bufferInfo, &allocInfo, &buffer, &allocation, nullptr) != VK_SUCCESS) {
         throw std::runtime_error("failed to create buffer with VMA!");
-        }
     }
+}
 
     VkCommandBuffer beginSingleTimeCommands() {
         VkCommandBufferAllocateInfo allocInfo{};
