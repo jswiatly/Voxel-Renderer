@@ -1695,7 +1695,7 @@ private:
     vertices.clear();
     indices.clear();
 
-    int gridSize = 20;
+    int gridSize = 200;
     
     for (int x = -gridSize / 2; x < gridSize / 2; x++) {
         for (int z = -gridSize / 2; z < gridSize / 2; z++) {
@@ -1748,7 +1748,7 @@ private:
         UniformBufferObject ubo{};
 
         ubo.view = glm::lookAt(camera.position, camera.position + camera.front, camera.up);
-        ubo.proj = glm::perspective(glm::radians(45.0f), swapChainExtent.width / (float) swapChainExtent.height, 0.1f, 10.0f);
+        ubo.proj = glm::perspective(glm::radians(45.0f), swapChainExtent.width / (float) swapChainExtent.height, 0.1f, 100.0f);
     
         ubo.proj[1][1] *= -1; 
     
