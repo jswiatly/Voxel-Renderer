@@ -1748,7 +1748,7 @@ private:
         UniformBufferObject ubo{};
 
         ubo.view = glm::lookAt(camera.position, camera.position + camera.front, camera.up);
-        ubo.proj = glm::perspective(glm::radians(45.0f), swapChainExtent.width / (float) swapChainExtent.height, 0.1f, 100.0f);
+        ubo.proj = glm::perspective(glm::radians(45.0f), swapChainExtent.width / (float) swapChainExtent.height, 0.1f, 1000.0f);
     
         ubo.proj[1][1] *= -1; 
     
