@@ -1692,21 +1692,45 @@ private:
     }
 
     void generateMinecraftScene() {
-    vertices.clear();
-    indices.clear();
+        vertices.clear();
+        indices.clear();
 
-    int gridSize = 200;
-    
-    for (int x = -gridSize / 2; x < gridSize / 2; x++) {
-        for (int z = -gridSize / 2; z < gridSize / 2; z++) {
-            float height = std::sin(x * 0.3f) * std::cos(z * 0.3f) * 3.0f; 
-            int blockY = static_cast<int>(std::round(height));
-            glm::vec3 pos(x, blockY, z);
-            glm::vec3 color(0.2f, 0.8f - (blockY * 0.1f), 0.2f); 
-            addCube(pos, color);
+        constexpr int SIZE = 220;
+        constexpr int HALF = SIZE / 2;
+
+        auto noise = [](float x, float z) {
+            float xi = std::floor(x), zi = std::floor(z);
+            float xf = x - xi,        zf = z - zi;
+            auto h = [](float a, float b) {
+                float v = std::sin(a * 127.1f + b * 311.7f) * 43758.5453f;
+                return v - std::floor(v);
+            };
+            float u = xf * xf * (3.f - 2.f * xf);
+            float v = zf * zf * (3.f - 2.f * zf);
+            return glm::mix(glm::mix(h(xi, zi),     h(xi + 1, zi),     u),
+                            glm::mix(h(xi, zi + 1), h(xi + 1, zi + 1), u), v);
+        };
+
+        auto fbm = [&](float x, float z) {
+            float t = 0.f, a = 1.f, f = 1.f, n = 0.f;
+            for (int i = 0; i < 6; ++i) {
+                float v = noise(x * f, z * f);
+                t += (1.f - std::abs(v - 0.5f) * 2.f) * a;
+                n += a; a *= 0.5f; f *= 2.0f;
+            }
+            return t / n;
+        };
+
+        for (int x = -HALF; x < HALF; ++x) {
+            for (int z = -HALF; z < HALF; ++z) {
+                int h = static_cast<int>(fbm(x * 0.018f, z * 0.018f) * 60.f) - 8;
+                for (int y = -6; y <= h; ++y) {
+                    float s = 0.25f + (y + 8) * 0.012f;
+                    addCube(glm::vec3(x, y, z), glm::vec3(s * 0.7f, s, s * 0.6f));
+                }
+            }
         }
     }
-}
 
     void createSyncObjects() {
         imageAvailableSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
