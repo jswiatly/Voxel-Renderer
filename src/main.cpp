@@ -1691,12 +1691,46 @@ private:
         }
     }
 
+    static constexpr glm::vec3 FACE_VERTS[6][4] = {
+    // FRONT (+Z)
+    {{-0.5f,-0.5f, 0.5f},{ 0.5f,-0.5f, 0.5f},{ 0.5f, 0.5f, 0.5f},{-0.5f, 0.5f, 0.5f}},
+    // BACK (-Z)
+    {{ 0.5f,-0.5f,-0.5f},{-0.5f,-0.5f,-0.5f},{-0.5f, 0.5f,-0.5f},{ 0.5f, 0.5f,-0.5f}},
+    // LEFT (-X)
+    {{-0.5f,-0.5f,-0.5f},{-0.5f,-0.5f, 0.5f},{-0.5f, 0.5f, 0.5f},{-0.5f, 0.5f,-0.5f}},
+    // RIGHT (+X)
+    {{ 0.5f,-0.5f, 0.5f},{ 0.5f,-0.5f,-0.5f},{ 0.5f, 0.5f,-0.5f},{ 0.5f, 0.5f, 0.5f}},
+    // BOTTOM (-Y)
+    {{-0.5f,-0.5f,-0.5f},{ 0.5f,-0.5f,-0.5f},{ 0.5f,-0.5f, 0.5f},{-0.5f,-0.5f, 0.5f}},
+    // TOP (+Y)
+    {{-0.5f, 0.5f, 0.5f},{ 0.5f, 0.5f, 0.5f},{ 0.5f, 0.5f,-0.5f},{-0.5f, 0.5f,-0.5f}},
+    };
+
+    static constexpr glm::ivec3 FACE_DIR[6] = {
+        {0, 0, 1}, { 0, 0,-1}, {-1, 0, 0}, { 1, 0, 0}, { 0,-1, 0}, { 0, 1, 0}
+    };
+
+    void addFace(glm::vec3 offset, int face, glm::vec3 color) {
+        uint32_t start = static_cast<uint32_t>(vertices.size());
+        for (int i = 0; i < 4; ++i) {
+            vertices.push_back({ FACE_VERTS[face][i] + offset, color, {0.f, 0.f} });
+        }
+        indices.push_back(start + 0);
+        indices.push_back(start + 1);
+        indices.push_back(start + 2);
+        indices.push_back(start + 2);
+        indices.push_back(start + 3);
+        indices.push_back(start + 0);
+    }
+
     void generateMinecraftScene() {
         vertices.clear();
         indices.clear();
 
         constexpr int SIZE = 220;
         constexpr int HALF = SIZE / 2;
+
+        std::vector<int> heightMap(SIZE * SIZE);
 
         auto noise = [](float x, float z) {
             float xi = std::floor(x), zi = std::floor(z);
@@ -1721,15 +1755,26 @@ private:
             return t / n;
         };
 
-        for (int x = -HALF; x < HALF; ++x) {
-            for (int z = -HALF; z < HALF; ++z) {
+        for (int gx = 0; gx < SIZE; ++gx) {
+            for (int gz = 0; gz < SIZE; ++gz) {
+                int x = gx - HALF;
+                int z = gz - HALF;
                 int h = static_cast<int>(fbm(x * 0.018f, z * 0.018f) * 60.f) - 8;
+                heightMap[gx * SIZE + gz] = h;
+            }
+        }
+
+        for (int gx = 0; gx < SIZE; ++gx) {
+            for (int gz = 0; gz < SIZE; ++gz) {
+                int x = gx - HALF;
+                int z = gz - HALF;
+                int h = heightMap[gx * SIZE + gz];
                 for (int y = -6; y <= h; ++y) {
                     float s = 0.25f + (y + 8) * 0.012f;
                     addCube(glm::vec3(x, y, z), glm::vec3(s * 0.7f, s, s * 0.6f));
                 }
             }
-        }
+        } 
     }
 
     void createSyncObjects() {
