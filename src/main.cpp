@@ -999,7 +999,7 @@ ImGui::End();
             .depthClampEnable = VK_FALSE,
             .rasterizerDiscardEnable = VK_FALSE,
             .polygonMode = VK_POLYGON_MODE_FILL,
-            .cullMode = VK_CULL_MODE_NONE,
+            .cullMode = VK_CULL_MODE_BACK_BIT,
             .frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE,
             .depthBiasEnable = VK_FALSE,
             .lineWidth = 1.0f
@@ -1764,17 +1764,31 @@ private:
             }
         }
 
+        auto isSolid = [&](int x, int y, int z) {
+            int gx = x + HALF, gz = z + HALF;
+            if (gx < 0 || gx >= SIZE || gz < 0 || gz >= SIZE) return false;
+            if (y < -6) return true;
+            return y <= heightMap[gx * SIZE + gz];
+        };
+
         for (int gx = 0; gx < SIZE; ++gx) {
             for (int gz = 0; gz < SIZE; ++gz) {
                 int x = gx - HALF;
                 int z = gz - HALF;
                 int h = heightMap[gx * SIZE + gz];
-                for (int y = -6; y <= h; ++y) {
-                    float s = 0.25f + (y + 8) * 0.012f;
-                    addCube(glm::vec3(x, y, z), glm::vec3(s * 0.7f, s, s * 0.6f));
+            for (int y = -6; y <= h; ++y) {
+                float s = 0.25f + (y + 8) * 0.012f;
+                glm::vec3 col(s * 0.7f, s, s * 0.6f);
+
+            for (int f = 0; f < 6; ++f) {
+                glm::ivec3 d = FACE_DIR[f];
+                if (!isSolid(x + d.x, y + d.y, z + d.z)) {
+                    addFace(glm::vec3(x, y, z), f, col);
                 }
             }
-        } 
+        }
+    }
+}
     }
 
     void createSyncObjects() {
