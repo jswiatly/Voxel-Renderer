@@ -33,6 +33,7 @@
 #include "core/Device.hpp"
 #include "core/Window.hpp"
 #include "scene/Camera.hpp"
+#include "Time.hpp"
 
 const std::string MODEL_PATH = "models/viking_room.obj";
 const std::string TEXTURE_PATH = "textures/test.jpg";
@@ -139,6 +140,7 @@ public:
 private:
     Camera camera;
     VulkanDevice vulkanDevice;
+    vkr::Time time;
     GLFWwindow* window;
     VmaAllocator allocator;
 
@@ -234,7 +236,7 @@ private:
 
         glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 
-        window = glfwCreateWindow(WIDTH, HEIGHT, "Vulkan", nullptr, nullptr);
+        window = glfwCreateWindow(WIDTH, HEIGHT, "Vesta", nullptr, nullptr);
         glfwSetWindowUserPointer(window, this);
         glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
         glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
@@ -504,6 +506,7 @@ ImGui::End();
     void mainLoop() {
         while (!glfwWindowShouldClose(window)) {
             glfwPollEvents();
+            time.update();
             ImGui_ImplVulkan_NewFrame();
             ImGui_ImplGlfw_NewFrame();
             ImGui::NewFrame();
