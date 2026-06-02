@@ -5,6 +5,8 @@
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/hash.hpp>
+#include <glm/glm.hpp>
+#include <glm/gtc/constants.hpp>
 
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
@@ -53,6 +55,25 @@ const std::vector<const char*> validationLayers = {
 const std::vector<const char*> deviceExtensions = {
     VK_KHR_SWAPCHAIN_EXTENSION_NAME
 };
+
+struct SkyKeyFrame {
+    float timeOfDay;
+    glm::vec4 color;
+};
+
+static const std::array<SkyKeyFrame, 7> SKY_KEYFRAMES = {};
+
+glm::vec4 getSkyColor(float timeOfDay) {
+    for (size_t i{}; i + 1 < SKY_KEYFRAMES.size(); ++i){
+        const auto& a = SKY_KEYFRAMES[i];
+        const auto& b = SKY_KEYFRAMES[i + 1];
+        if (timeOfDay >= a.timeOfDay && timeOfDay <= b.timeOfDay){
+            float t = (timeOfDay - a.timeOfDay) / (b.timeOfDay - a.timeOfDay);
+            return glm::mix(a.color, b.color, t);
+        }
+    }
+    return SKY_KEYFRAMES.back().color;
+}
 
 
 VkResult CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger) {
@@ -141,6 +162,9 @@ private:
     Camera camera;
     VulkanDevice vulkanDevice;
     vkr::Time time;
+    float clearColor[4] = {0,0,0,1};
+    float m_timeOfDay = 0.0f;
+    glm::vec4 m_skyColor = {0,0,0,1};
     GLFWwindow* window;
     VmaAllocator allocator;
 
@@ -192,8 +216,6 @@ private:
     std::vector<VkDescriptorSet> descriptorSets;
 
     VkDescriptorPool imguiPool;
-
-    float clearColor[4] = {0.1f, 0.1f, 0.1f, 1.0f};
 
     std::vector<VkCommandBuffer> commandBuffers;
 
@@ -420,25 +442,34 @@ void addCube(glm::vec3 offset, glm::vec3 color, float scale = 1.0f) {
 
     void DrawImGui(){
         ImGui::Begin("Debug");
-            ImGui::ColorEdit4("Background Color", clearColor);
-            ImGui::End();
+        int hh = static_cast<int>(m_timeOfDay * 24.0f);
+        int mm = static_cast<int>(m_timeOfDay * 24.0f * 60.0f) % 60;
+        ImGui::Text("In-game time: %02d:%02d", hh, mm);
+        ImGui::ColorButton("Sky", ImVec4(m_skyColor.r, m_skyColor.g, m_skyColor.b, m_skyColor.a), 0, ImVec2(80, 20));
+        static bool manualTime = false;
+        static float manualTOD = 0.5f;
+        ImGui::Checkbox("Manual time of day", &manualTime);
+        if (manualTime) {
+            ImGui::SliderFloat("Time of day", &manualTOD, 0.0f, 1.0f);
+            m_timeOfDay = manualTOD;
+        }
+        ImGui::End();
 
-            ImGui::Begin("Performance");
-            ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
-            ImGui::End();
+        ImGui::Begin("Performance");
+        ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+        ImGui::End();
 
-            ImGui::Begin("Cube controller");
-            ImGui::SliderFloat3("Position", &cubePosition.x, -5.0f, 5.0f);
-            ImGui::SliderFloat3("Rotation", &cubeRotation.x, 0.0f, 360.0f);
-            ImGui::SliderFloat("Scale", &cubeScale, 0.1f, 5.0f);
-            if (ImGui::Button("Reset")) {
-                cubePosition = glm::vec3(0.0f, 0.0f, 0.0f);
-                cubeRotation = glm::vec3(0.0f, 0.0f, 0.0f);
-                cubeScale = 1.0f;
-            }
-            ImGui::End();
-
-            ImGui::Begin("3D Orientation", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoBackground);
+        ImGui::Begin("Cube controller");
+        ImGui::SliderFloat3("Position", &cubePosition.x, -5.0f, 5.0f);
+        ImGui::SliderFloat3("Rotation", &cubeRotation.x, 0.0f, 360.0f);
+        ImGui::SliderFloat("Scale", &cubeScale, 0.1f, 5.0f);
+        if (ImGui::Button("Reset")) {
+            cubePosition = glm::vec3(0.0f, 0.0f, 0.0f);
+            cubeRotation = glm::vec3(0.0f, 0.0f, 0.0f);
+            cubeScale = 1.0f;
+        }
+        ImGui::End();
+        ImGui::Begin("3D Orientation", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoBackground);
 
 ImDrawList* draw_list = ImGui::GetWindowDrawList();
 ImVec2 p = ImGui::GetCursorScreenPos();
@@ -500,6 +531,14 @@ draw_list->AddCircleFilled(center, 3.0f, IM_COL32(255, 255, 255, 255));
 
 ImGui::Dummy(ImVec2(size, size)); 
 ImGui::End();
+
+        ImGui::Begin("Time");
+        const int totalSec = static_cast<int>(time.getGameTimeSeconds());
+        const int h = totalSec / 3600;
+        const int m = (totalSec % 3600) / 60;
+        const int s = totalSec % 60;
+        ImGui::Text("Game time: %02d:%02d:%02d", h, m, s);
+        ImGui::End();
     }
 
 
@@ -507,6 +546,15 @@ ImGui::End();
         while (!glfwWindowShouldClose(window)) {
             glfwPollEvents();
             time.update();
+
+            constexpr float DAY_LENGTH_GAME_SECONDS = 86400.0f;
+            float m_timeOfDay = std::fmod(static_cast<float>(time.getGameTimeSeconds()),DAY_LENGTH_GAME_SECONDS) / DAY_LENGTH_GAME_SECONDS;
+            m_skyColor = getSkyColor(m_timeOfDay);
+            clearColor[0] = m_skyColor.r;
+            clearColor[1] = m_skyColor.g;
+            clearColor[2] = m_skyColor.b;
+            clearColor[3] = m_skyColor.a;
+
             ImGui_ImplVulkan_NewFrame();
             ImGui_ImplGlfw_NewFrame();
             ImGui::NewFrame();
