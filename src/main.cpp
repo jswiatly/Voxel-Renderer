@@ -5,6 +5,8 @@
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/hash.hpp>
+#include <glm/glm.hpp>
+#include <glm/gtc/constants.hpp>
 
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
@@ -33,6 +35,7 @@
 #include "core/Device.hpp"
 #include "core/Window.hpp"
 #include "scene/Camera.hpp"
+#include "Time.hpp"
 
 const std::string MODEL_PATH = "models/viking_room.obj";
 const std::string TEXTURE_PATH = "textures/test.jpg";
@@ -52,6 +55,25 @@ const std::vector<const char*> validationLayers = {
 const std::vector<const char*> deviceExtensions = {
     VK_KHR_SWAPCHAIN_EXTENSION_NAME
 };
+
+struct SkyKeyFrame {
+    float timeOfDay;
+    glm::vec4 color;
+};
+
+static const std::array<SkyKeyFrame, 7> SKY_KEYFRAMES = {};
+
+glm::vec4 getSkyColor(float timeOfDay) {
+    for (size_t i{}; i + 1 < SKY_KEYFRAMES.size(); ++i){
+        const auto& a = SKY_KEYFRAMES[i];
+        const auto& b = SKY_KEYFRAMES[i + 1];
+        if (timeOfDay >= a.timeOfDay && timeOfDay <= b.timeOfDay){
+            float t = (timeOfDay - a.timeOfDay) / (b.timeOfDay - a.timeOfDay);
+            return glm::mix(a.color, b.color, t);
+        }
+    }
+    return SKY_KEYFRAMES.back().color;
+}
 
 
 VkResult CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger) {
@@ -139,6 +161,10 @@ public:
 private:
     Camera camera;
     VulkanDevice vulkanDevice;
+    vkr::Time time;
+    float clearColor[4] = {0,0,0,1};
+    float m_timeOfDay = 0.0f;
+    glm::vec4 m_skyColor = {0,0,0,1};
     GLFWwindow* window;
     VmaAllocator allocator;
 
@@ -191,8 +217,6 @@ private:
 
     VkDescriptorPool imguiPool;
 
-    float clearColor[4] = {0.1f, 0.1f, 0.1f, 1.0f};
-
     std::vector<VkCommandBuffer> commandBuffers;
 
     std::vector<VkSemaphore> imageAvailableSemaphores;
@@ -234,7 +258,7 @@ private:
 
         glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 
-        window = glfwCreateWindow(WIDTH, HEIGHT, "Vulkan", nullptr, nullptr);
+        window = glfwCreateWindow(WIDTH, HEIGHT, "Vesta", nullptr, nullptr);
         glfwSetWindowUserPointer(window, this);
         glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
         glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
@@ -418,25 +442,34 @@ void addCube(glm::vec3 offset, glm::vec3 color, float scale = 1.0f) {
 
     void DrawImGui(){
         ImGui::Begin("Debug");
-            ImGui::ColorEdit4("Background Color", clearColor);
-            ImGui::End();
+        int hh = static_cast<int>(m_timeOfDay * 24.0f);
+        int mm = static_cast<int>(m_timeOfDay * 24.0f * 60.0f) % 60;
+        ImGui::Text("In-game time: %02d:%02d", hh, mm);
+        ImGui::ColorButton("Sky", ImVec4(m_skyColor.r, m_skyColor.g, m_skyColor.b, m_skyColor.a), 0, ImVec2(80, 20));
+        static bool manualTime = false;
+        static float manualTOD = 0.5f;
+        ImGui::Checkbox("Manual time of day", &manualTime);
+        if (manualTime) {
+            ImGui::SliderFloat("Time of day", &manualTOD, 0.0f, 1.0f);
+            m_timeOfDay = manualTOD;
+        }
+        ImGui::End();
 
-            ImGui::Begin("Performance");
-            ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
-            ImGui::End();
+        ImGui::Begin("Performance");
+        ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+        ImGui::End();
 
-            ImGui::Begin("Cube controller");
-            ImGui::SliderFloat3("Position", &cubePosition.x, -5.0f, 5.0f);
-            ImGui::SliderFloat3("Rotation", &cubeRotation.x, 0.0f, 360.0f);
-            ImGui::SliderFloat("Scale", &cubeScale, 0.1f, 5.0f);
-            if (ImGui::Button("Reset")) {
-                cubePosition = glm::vec3(0.0f, 0.0f, 0.0f);
-                cubeRotation = glm::vec3(0.0f, 0.0f, 0.0f);
-                cubeScale = 1.0f;
-            }
-            ImGui::End();
-
-            ImGui::Begin("3D Orientation", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoBackground);
+        ImGui::Begin("Cube controller");
+        ImGui::SliderFloat3("Position", &cubePosition.x, -5.0f, 5.0f);
+        ImGui::SliderFloat3("Rotation", &cubeRotation.x, 0.0f, 360.0f);
+        ImGui::SliderFloat("Scale", &cubeScale, 0.1f, 5.0f);
+        if (ImGui::Button("Reset")) {
+            cubePosition = glm::vec3(0.0f, 0.0f, 0.0f);
+            cubeRotation = glm::vec3(0.0f, 0.0f, 0.0f);
+            cubeScale = 1.0f;
+        }
+        ImGui::End();
+        ImGui::Begin("3D Orientation", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoBackground);
 
 ImDrawList* draw_list = ImGui::GetWindowDrawList();
 ImVec2 p = ImGui::GetCursorScreenPos();
@@ -498,12 +531,30 @@ draw_list->AddCircleFilled(center, 3.0f, IM_COL32(255, 255, 255, 255));
 
 ImGui::Dummy(ImVec2(size, size)); 
 ImGui::End();
+
+        ImGui::Begin("Time");
+        const int totalSec = static_cast<int>(time.getGameTimeSeconds());
+        const int h = totalSec / 3600;
+        const int m = (totalSec % 3600) / 60;
+        const int s = totalSec % 60;
+        ImGui::Text("Game time: %02d:%02d:%02d", h, m, s);
+        ImGui::End();
     }
 
 
     void mainLoop() {
         while (!glfwWindowShouldClose(window)) {
             glfwPollEvents();
+            time.update();
+
+            constexpr float DAY_LENGTH_GAME_SECONDS = 86400.0f;
+            float m_timeOfDay = std::fmod(static_cast<float>(time.getGameTimeSeconds()),DAY_LENGTH_GAME_SECONDS) / DAY_LENGTH_GAME_SECONDS;
+            m_skyColor = getSkyColor(m_timeOfDay);
+            clearColor[0] = m_skyColor.r;
+            clearColor[1] = m_skyColor.g;
+            clearColor[2] = m_skyColor.b;
+            clearColor[3] = m_skyColor.a;
+
             ImGui_ImplVulkan_NewFrame();
             ImGui_ImplGlfw_NewFrame();
             ImGui::NewFrame();
@@ -999,7 +1050,7 @@ ImGui::End();
             .depthClampEnable = VK_FALSE,
             .rasterizerDiscardEnable = VK_FALSE,
             .polygonMode = VK_POLYGON_MODE_FILL,
-            .cullMode = VK_CULL_MODE_NONE,
+            .cullMode = VK_CULL_MODE_BACK_BIT,
             .frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE,
             .depthBiasEnable = VK_FALSE,
             .lineWidth = 1.0f
@@ -1691,22 +1742,105 @@ private:
         }
     }
 
-    void generateMinecraftScene() {
-    vertices.clear();
-    indices.clear();
+    static constexpr glm::vec3 FACE_VERTS[6][4] = {
+    // FRONT (+Z)
+    {{-0.5f,-0.5f, 0.5f},{ 0.5f,-0.5f, 0.5f},{ 0.5f, 0.5f, 0.5f},{-0.5f, 0.5f, 0.5f}},
+    // BACK (-Z)
+    {{ 0.5f,-0.5f,-0.5f},{-0.5f,-0.5f,-0.5f},{-0.5f, 0.5f,-0.5f},{ 0.5f, 0.5f,-0.5f}},
+    // LEFT (-X)
+    {{-0.5f,-0.5f,-0.5f},{-0.5f,-0.5f, 0.5f},{-0.5f, 0.5f, 0.5f},{-0.5f, 0.5f,-0.5f}},
+    // RIGHT (+X)
+    {{ 0.5f,-0.5f, 0.5f},{ 0.5f,-0.5f,-0.5f},{ 0.5f, 0.5f,-0.5f},{ 0.5f, 0.5f, 0.5f}},
+    // BOTTOM (-Y)
+    {{-0.5f,-0.5f,-0.5f},{ 0.5f,-0.5f,-0.5f},{ 0.5f,-0.5f, 0.5f},{-0.5f,-0.5f, 0.5f}},
+    // TOP (+Y)
+    {{-0.5f, 0.5f, 0.5f},{ 0.5f, 0.5f, 0.5f},{ 0.5f, 0.5f,-0.5f},{-0.5f, 0.5f,-0.5f}},
+    };
 
-    int gridSize = 200;
-    
-    for (int x = -gridSize / 2; x < gridSize / 2; x++) {
-        for (int z = -gridSize / 2; z < gridSize / 2; z++) {
-            float height = std::sin(x * 0.3f) * std::cos(z * 0.3f) * 3.0f; 
-            int blockY = static_cast<int>(std::round(height));
-            glm::vec3 pos(x, blockY, z);
-            glm::vec3 color(0.2f, 0.8f - (blockY * 0.1f), 0.2f); 
-            addCube(pos, color);
+    static constexpr glm::ivec3 FACE_DIR[6] = {
+        {0, 0, 1}, { 0, 0,-1}, {-1, 0, 0}, { 1, 0, 0}, { 0,-1, 0}, { 0, 1, 0}
+    };
+
+    void addFace(glm::vec3 offset, int face, glm::vec3 color) {
+        uint32_t start = static_cast<uint32_t>(vertices.size());
+        for (int i = 0; i < 4; ++i) {
+            vertices.push_back({ FACE_VERTS[face][i] + offset, color, {0.f, 0.f} });
+        }
+        indices.push_back(start + 0);
+        indices.push_back(start + 1);
+        indices.push_back(start + 2);
+        indices.push_back(start + 2);
+        indices.push_back(start + 3);
+        indices.push_back(start + 0);
+    }
+
+    void generateMinecraftScene() {
+        vertices.clear();
+        indices.clear();
+
+        constexpr int SIZE = 220;
+        constexpr int HALF = SIZE / 2;
+
+        std::vector<int> heightMap(SIZE * SIZE);
+
+        auto noise = [](float x, float z) {
+            float xi = std::floor(x), zi = std::floor(z);
+            float xf = x - xi,        zf = z - zi;
+            auto h = [](float a, float b) {
+                float v = std::sin(a * 127.1f + b * 311.7f) * 43758.5453f;
+                return v - std::floor(v);
+            };
+            float u = xf * xf * (3.f - 2.f * xf);
+            float v = zf * zf * (3.f - 2.f * zf);
+            return glm::mix(glm::mix(h(xi, zi),     h(xi + 1, zi),     u),
+                            glm::mix(h(xi, zi + 1), h(xi + 1, zi + 1), u), v);
+        };
+
+        auto fbm = [&](float x, float z) {
+            float t = 0.f, a = 1.f, f = 1.f, n = 0.f;
+            for (int i = 0; i < 6; ++i) {
+                float v = noise(x * f, z * f);
+                t += (1.f - std::abs(v - 0.5f) * 2.f) * a;
+                n += a; a *= 0.5f; f *= 2.0f;
+            }
+            return t / n;
+        };
+
+        for (int gx = 0; gx < SIZE; ++gx) {
+            for (int gz = 0; gz < SIZE; ++gz) {
+                int x = gx - HALF;
+                int z = gz - HALF;
+                int h = static_cast<int>(fbm(x * 0.018f, z * 0.018f) * 60.f) - 8;
+                heightMap[gx * SIZE + gz] = h;
+            }
+        }
+
+        auto isSolid = [&](int x, int y, int z) {
+            int gx = x + HALF, gz = z + HALF;
+            if (gx < 0 || gx >= SIZE || gz < 0 || gz >= SIZE) return false;
+            if (y < -6) return true;
+            return y <= heightMap[gx * SIZE + gz];
+        };
+
+        for (int gx = 0; gx < SIZE; ++gx) {
+            for (int gz = 0; gz < SIZE; ++gz) {
+                int x = gx - HALF;
+                int z = gz - HALF;
+                int h = heightMap[gx * SIZE + gz];
+            for (int y = -6; y <= h; ++y) {
+                float s = 0.25f + (y + 8) * 0.012f;
+                glm::vec3 col(s * 0.7f, s, s * 0.6f);
+
+            for (int f = 0; f < 6; ++f) {
+                glm::ivec3 d = FACE_DIR[f];
+                if (!isSolid(x + d.x, y + d.y, z + d.z)) {
+                    addFace(glm::vec3(x, y, z), f, col);
+                }
+            }
         }
     }
 }
+    }
 
     void createSyncObjects() {
         imageAvailableSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
@@ -1748,7 +1882,7 @@ private:
         UniformBufferObject ubo{};
 
         ubo.view = glm::lookAt(camera.position, camera.position + camera.front, camera.up);
-        ubo.proj = glm::perspective(glm::radians(45.0f), swapChainExtent.width / (float) swapChainExtent.height, 0.1f, 100.0f);
+        ubo.proj = glm::perspective(glm::radians(45.0f), swapChainExtent.width / (float) swapChainExtent.height, 0.1f, 1000.0f);
     
         ubo.proj[1][1] *= -1; 
     
