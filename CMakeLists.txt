@@ -18,6 +18,7 @@ set(IMGUI_SOURCES
 
 add_executable(Vesta 
     src/main.cpp
+    src/Time.cpp
     ${IMGUI_SOURCES}
 )
 
