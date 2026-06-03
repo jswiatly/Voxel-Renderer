@@ -61,7 +61,15 @@ struct SkyKeyFrame {
     glm::vec4 color;
 };
 
-static const std::array<SkyKeyFrame, 7> SKY_KEYFRAMES = {};
+inline const std::array<SkyKeyFrame, 7> SKY_KEYFRAMES = {{
+    { 0.00f, { 0.02f, 0.02f, 0.08f, 1.0f } },  // 00:00 głęboka noc
+    { 0.25f, { 0.15f, 0.10f, 0.25f, 1.0f } },  // 06:00 przedświt (fiolet)
+    { 0.30f, { 0.95f, 0.55f, 0.30f, 1.0f } },  // 07:12 wschód (pomarańcz)
+    { 0.50f, { 0.45f, 0.72f, 0.95f, 1.0f } },  // 12:00 południe (błękit)
+    { 0.75f, { 0.95f, 0.45f, 0.25f, 1.0f } },  // 18:00 zachód
+    { 0.80f, { 0.20f, 0.15f, 0.35f, 1.0f } },  // 19:12 zmierzch
+    { 1.00f, { 0.02f, 0.02f, 0.08f, 1.0f } },  // 24:00 = 00:00
+}};
 
 glm::vec4 getSkyColor(float timeOfDay) {
     for (size_t i{}; i + 1 < SKY_KEYFRAMES.size(); ++i){
@@ -149,7 +157,7 @@ struct UniformBufferObject {
     alignas(16) glm::mat4 proj;
 };
 
-class HelloTriangleApplication {
+class Application {
 public:
     void run() {
         initWindow();
@@ -238,18 +246,8 @@ private:
     std::vector<ValidationLog> validationLogs;
     std::mutex logMutex;
 
-    glm::vec3 cameraPos = glm::vec3(0.0f, 0.0f, 0.0f);
-    glm::vec3 cameraFront = glm::vec3(0.0f, 0.0f, 1.0f);
-    glm::vec3 cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
-
-    float yaw = -90.0f;
-    float pitch = 0.0f;
     float lastX = 400, lastY = 300;
     bool firstMouse = true;
-
-    float deltaTime = 0.0f;
-    float lastFrame = 0.0f;
-
     bool cursorMode = false;
     bool MouseModeKeyWasPressed = false;
 
@@ -262,10 +260,9 @@ private:
         glfwSetWindowUserPointer(window, this);
         glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
         glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-        glfwSetWindowUserPointer(window, this);
 
         glfwSetCursorPosCallback(window, [](GLFWwindow* window, double xpos, double ypos) {
-            auto app = reinterpret_cast<HelloTriangleApplication*>(glfwGetWindowUserPointer(window));
+            auto app = reinterpret_cast<Application*>(glfwGetWindowUserPointer(window));
             if (ImGui::GetIO().WantCaptureMouse || app->cursorMode) return;
 
             if (app->firstMouse) {
@@ -281,7 +278,7 @@ private:
     }
 
     static void framebufferResizeCallback(GLFWwindow* window, int width, int height) {
-        auto app = reinterpret_cast<HelloTriangleApplication*>(glfwGetWindowUserPointer(window));
+        auto app = reinterpret_cast<Application*>(glfwGetWindowUserPointer(window));
         app->framebufferResized = true;
     }
 
@@ -327,32 +324,28 @@ private:
     }
 
     void processInput(GLFWwindow* window) {
-    float currentFrame = glfwGetTime();
-    deltaTime = currentFrame - lastFrame;
-    lastFrame = currentFrame;
-    float cameraSpeed = 2.5f * deltaTime;
+        const float dt = time.getDeltaTime();
 
-    bool fKeyPressed = glfwGetKey(window, GLFW_KEY_F) == GLFW_PRESS;
+        bool fKeyPressed = glfwGetKey(window, GLFW_KEY_F) == GLFW_PRESS;
     
-    if (fKeyPressed && !MouseModeKeyWasPressed) {
-        cursorMode = !cursorMode;
-        
-        if (cursorMode) {
-            glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
-        } else {
-            glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-            firstMouse = true;
+        if (fKeyPressed && !MouseModeKeyWasPressed) {
+            cursorMode = !cursorMode;
+            if (cursorMode) {
+                glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+            } else {
+                glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+                firstMouse = true;
+            }
+        }
+        MouseModeKeyWasPressed = fKeyPressed;
+
+        if (!cursorMode) {
+        if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) camera.processKeyboard(0, dt);
+        if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) camera.processKeyboard(1, dt);
+        if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) camera.processKeyboard(2, dt);
+        if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) camera.processKeyboard(3, dt);
         }
     }
-    MouseModeKeyWasPressed = fKeyPressed;
-
-    if (!cursorMode) {
-    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) camera.processKeyboard(0, deltaTime);
-    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) camera.processKeyboard(1, deltaTime);
-    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) camera.processKeyboard(2, deltaTime);
-    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) camera.processKeyboard(3, deltaTime);
-    }
-}
 
 void addCube(glm::vec3 offset, glm::vec3 color, float scale = 1.0f) {
     uint32_t startIndex = static_cast<uint32_t>(vertices.size());
@@ -547,8 +540,8 @@ ImGui::End();
             glfwPollEvents();
             time.update();
 
-            constexpr float DAY_LENGTH_GAME_SECONDS = 86400.0f;
-            float m_timeOfDay = std::fmod(static_cast<float>(time.getGameTimeSeconds()),DAY_LENGTH_GAME_SECONDS) / DAY_LENGTH_GAME_SECONDS;
+            constexpr float DAY_LENGTH_GAME_SECONDS = 600.0f; // DEFAULT: 86400
+         //   float m_timeOfDay = std::fmod(static_cast<float>(time.getGameTimeSeconds()),DAY_LENGTH_GAME_SECONDS) / DAY_LENGTH_GAME_SECONDS;
             m_skyColor = getSkyColor(m_timeOfDay);
             clearColor[0] = m_skyColor.r;
             clearColor[1] = m_skyColor.g;
@@ -569,6 +562,7 @@ ImGui::End();
     }
 
     void cleanupSwapChain() {
+        vkDestroyImageView(device, depthImageView, nullptr);
         vmaDestroyImage(allocator, depthImage, depthImageAllocation);
 
         for (auto framebuffer : swapChainFramebuffers) {
@@ -607,15 +601,12 @@ ImGui::End();
         vkDestroySampler(device, textureSampler, nullptr);
         vkDestroyImageView(device, textureImageView, nullptr);
 
-        vkDestroyImage(device, textureImage, nullptr);
         vmaDestroyImage(allocator, textureImage, textureImageAllocation);
 
         vkDestroyDescriptorSetLayout(device, descriptorSetLayout, nullptr);
 
-        vkDestroyBuffer(device, indexBuffer, nullptr);
         vmaDestroyBuffer(allocator, indexBuffer, indexBufferAllocation);
 
-        vkDestroyBuffer(device, vertexBuffer, nullptr);
         vmaDestroyBuffer(allocator, vertexBuffer, vertexBufferAllocation);
 
         for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
@@ -1569,20 +1560,6 @@ ImGui::End();
         }
     }
 
-    class VulkanBuffer {
-public:
-   // VulkanBuffer(VulkanContext& context, VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties);
-  //  ~VulkanBuffer();
-
-    void mapData(void* data, VkDeviceSize size);
-    
-    VkBuffer get() const { return buffer; }
-private:
-    VkDevice device;
-    VkBuffer buffer;
-    VkDeviceMemory memory;
-    };
-
     void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VmaMemoryUsage vmaUsage, 
                   VkBuffer& buffer, VmaAllocation& allocation, VmaAllocationCreateFlags vmaFlags = 0) {
     VkBufferCreateInfo bufferInfo{
@@ -1875,13 +1852,9 @@ private:
     }
 
     void updateUniformBuffer(uint32_t currentImage) {
-        static auto startTime = std::chrono::high_resolution_clock::now();
-
-        auto currentTime = std::chrono::high_resolution_clock::now();
-        float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
         UniformBufferObject ubo{};
 
-        ubo.view = glm::lookAt(camera.position, camera.position + camera.front, camera.up);
+        ubo.view = camera.getViewMatrix();
         ubo.proj = glm::perspective(glm::radians(45.0f), swapChainExtent.width / (float) swapChainExtent.height, 0.1f, 1000.0f);
     
         ubo.proj[1][1] *= -1; 
@@ -2160,7 +2133,7 @@ private:
         }
     }
 
-        auto app = reinterpret_cast<HelloTriangleApplication*>(pUserData);
+        auto app = reinterpret_cast<Application*>(pUserData);
         
         if (app != nullptr){
             std::lock_guard<std::mutex> lock(app->logMutex);
@@ -2174,7 +2147,7 @@ private:
 };
 
 int main() {
-    HelloTriangleApplication app;
+    Application app;
 
     try {
         std::cout << R"(
