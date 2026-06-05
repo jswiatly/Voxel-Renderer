@@ -35,6 +35,7 @@
 #include "core/Device.hpp"
 #include "core/Window.hpp"
 #include "scene/Camera.hpp"
+#include "scene/Sky.hpp"
 #include "Time.hpp"
 
 const std::string MODEL_PATH = "models/viking_room.obj";
@@ -56,36 +57,8 @@ const std::vector<const char*> deviceExtensions = {
     VK_KHR_SWAPCHAIN_EXTENSION_NAME
 };
 
-struct SkyKeyFrame {
-    float timeOfDay;
-    glm::vec4 color;
-};
-
-inline const std::array<SkyKeyFrame, 7> SKY_KEYFRAMES = {{
-    { 0.00f, { 0.02f, 0.02f, 0.08f, 1.0f } },  // 00:00 głęboka noc
-    { 0.25f, { 0.15f, 0.10f, 0.25f, 1.0f } },  // 06:00 przedświt (fiolet)
-    { 0.30f, { 0.95f, 0.55f, 0.30f, 1.0f } },  // 07:12 wschód (pomarańcz)
-    { 0.50f, { 0.45f, 0.72f, 0.95f, 1.0f } },  // 12:00 południe (błękit)
-    { 0.75f, { 0.95f, 0.45f, 0.25f, 1.0f } },  // 18:00 zachód
-    { 0.80f, { 0.20f, 0.15f, 0.35f, 1.0f } },  // 19:12 zmierzch
-    { 1.00f, { 0.02f, 0.02f, 0.08f, 1.0f } },  // 24:00 = 00:00
-}};
-
-glm::vec4 getSkyColor(float timeOfDay) {
-    for (size_t i{}; i + 1 < SKY_KEYFRAMES.size(); ++i){
-        const auto& a = SKY_KEYFRAMES[i];
-        const auto& b = SKY_KEYFRAMES[i + 1];
-        if (timeOfDay >= a.timeOfDay && timeOfDay <= b.timeOfDay){
-            float t = (timeOfDay - a.timeOfDay) / (b.timeOfDay - a.timeOfDay);
-            return glm::mix(a.color, b.color, t);
-        }
-    }
-    return SKY_KEYFRAMES.back().color;
-}
-
-
 VkResult CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger) {
-    auto func = (PFN_vkCreateDebugUtilsMessengerEXT) vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT");
+    auto func = reinterpret_cast<PFN_vkCreateDebugUtilsMessengerEXT>(vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT"));
     if (func != nullptr) {
         return func(instance, pCreateInfo, pAllocator, pDebugMessenger);
     } else {
@@ -94,7 +67,7 @@ VkResult CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMes
 }
 
 void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks* pAllocator) {
-    auto func = (PFN_vkDestroyDebugUtilsMessengerEXT) vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT");
+    auto func = reinterpret_cast<PFN_vkDestroyDebugUtilsMessengerEXT>(vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT"));
     if (func != nullptr) {
         func(instance, debugMessenger, pAllocator);
     }
@@ -234,10 +207,6 @@ private:
 
     bool framebufferResized = false;
 
-    glm::vec3 cubePosition = glm::vec3(0.0f, 0.0f, 0.0f);
-    glm::vec3 cubeRotation = glm::vec3(0.0f, 0.0f, 0.0f);
-    float cubeScale = 1.0f;
-
     struct ValidationLog {
         VkDebugUtilsMessageSeverityFlagBitsEXT severity;
         std::string message;
@@ -347,55 +316,6 @@ private:
         }
     }
 
-void addCube(glm::vec3 offset, glm::vec3 color, float scale = 1.0f) {
-    uint32_t startIndex = static_cast<uint32_t>(vertices.size());
-
-    std::vector<Vertex> cubeVertices = {
-        {{-0.5f, -0.5f,  0.5f}, color, {0.0f, 0.0f}},
-        {{ 0.5f, -0.5f,  0.5f}, color, {1.0f, 0.0f}},
-        {{ 0.5f,  0.5f,  0.5f}, color, {1.0f, 1.0f}},
-        {{-0.5f,  0.5f,  0.5f}, color, {0.0f, 1.0f}},
-        {{ 0.5f, -0.5f, -0.5f}, color, {0.0f, 0.0f}},
-        {{-0.5f, -0.5f, -0.5f}, color, {1.0f, 0.0f}},
-        {{-0.5f,  0.5f, -0.5f}, color, {1.0f, 1.0f}},
-        {{ 0.5f,  0.5f, -0.5f}, color, {0.0f, 1.0f}},
-        {{-0.5f, -0.5f, -0.5f}, color, {0.0f, 0.0f}},
-        {{-0.5f, -0.5f,  0.5f}, color, {1.0f, 0.0f}},
-        {{-0.5f,  0.5f,  0.5f}, color, {1.0f, 1.0f}},
-        {{-0.5f,  0.5f, -0.5f}, color, {0.0f, 1.0f}},
-        {{ 0.5f, -0.5f,  0.5f}, color, {0.0f, 0.0f}},
-        {{ 0.5f, -0.5f, -0.5f}, color, {1.0f, 0.0f}},
-        {{ 0.5f,  0.5f, -0.5f}, color, {1.0f, 1.0f}},
-        {{ 0.5f,  0.5f,  0.5f}, color, {0.0f, 1.0f}},
-        {{-0.5f, -0.5f, -0.5f}, color, {0.0f, 0.0f}},
-        {{ 0.5f, -0.5f, -0.5f}, color, {1.0f, 0.0f}},
-        {{ 0.5f, -0.5f,  0.5f}, color, {1.0f, 1.0f}},
-        {{-0.5f, -0.5f,  0.5f}, color, {0.0f, 1.0f}},
-        {{-0.5f,  0.5f,  0.5f}, color, {0.0f, 0.0f}},
-        {{ 0.5f,  0.5f,  0.5f}, color, {1.0f, 0.0f}},
-        {{ 0.5f,  0.5f, -0.5f}, color, {1.0f, 1.0f}},
-        {{-0.5f,  0.5f, -0.5f}, color, {0.0f, 1.0f}}
-    };
-
-    for (auto& v : cubeVertices) {
-        v.pos = (v.pos * scale) + offset;
-        vertices.push_back(v);
-    }
-
-    std::vector<uint32_t> cubeIndices = {
-        0, 1, 2, 2, 3, 0,
-        4, 5, 6, 6, 7, 4,
-        8, 9, 10, 10, 11, 8,
-        12, 13, 14, 14, 15, 12,
-        16, 17, 18, 18, 19, 16,
-        20, 21, 22, 22, 23, 20 
-    };
-
-    for (auto i : cubeIndices) {
-        indices.push_back(startIndex + i);
-    }
-}
-
     void loadModel() {
         tinyobj::attrib_t attrib;
         std::vector<tinyobj::shape_t> shapes;
@@ -452,78 +372,64 @@ void addCube(glm::vec3 offset, glm::vec3 color, float scale = 1.0f) {
         ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
         ImGui::End();
 
-        ImGui::Begin("Cube controller");
-        ImGui::SliderFloat3("Position", &cubePosition.x, -5.0f, 5.0f);
-        ImGui::SliderFloat3("Rotation", &cubeRotation.x, 0.0f, 360.0f);
-        ImGui::SliderFloat("Scale", &cubeScale, 0.1f, 5.0f);
-        if (ImGui::Button("Reset")) {
-            cubePosition = glm::vec3(0.0f, 0.0f, 0.0f);
-            cubeRotation = glm::vec3(0.0f, 0.0f, 0.0f);
-            cubeScale = 1.0f;
-        }
-        ImGui::End();
         ImGui::Begin("3D Orientation", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoBackground);
 
-ImDrawList* draw_list = ImGui::GetWindowDrawList();
-ImVec2 p = ImGui::GetCursorScreenPos();
+        ImDrawList* draw_list = ImGui::GetWindowDrawList();
+        ImVec2 p = ImGui::GetCursorScreenPos();
 
-float size = 120.0f;
-float axis_length = 45.0f;
-ImVec2 center = ImVec2(p.x + size / 2.0f, p.y + size / 2.0f);
+        float size = 120.0f;
+        float axis_length = 45.0f;
+        ImVec2 center = ImVec2(p.x + size / 2.0f, p.y + size / 2.0f);
 
-draw_list->AddCircleFilled(center, axis_length + 15.0f, IM_COL32(20, 20, 20, 150));
-glm::mat4 view = glm::mat4(1.0f);
-view = glm::rotate(view, glm::radians(camera.pitch), glm::vec3(1.0f, 0.0f, 0.0f));
-view = glm::rotate(view, glm::radians(camera.yaw),   glm::vec3(0.0f, 1.0f, 0.0f));
+        draw_list->AddCircleFilled(center, axis_length + 15.0f, IM_COL32(20, 20, 20, 150));
+        glm::mat4 view = glm::mat4(1.0f);
+        view = glm::rotate(view, glm::radians(camera.pitch), glm::vec3(1.0f, 0.0f, 0.0f));
+        view = glm::rotate(view, glm::radians(camera.yaw),   glm::vec3(0.0f, 1.0f, 0.0f));
 
-struct Axis {
-    glm::vec3 world_dir;
-    ImU32 color;
-    const char* label;
-    glm::vec2 screen_pos;
-    float depth;
-};
+        struct Axis {
+            glm::vec3 world_dir;
+            ImU32 color;
+            const char* label;
+            glm::vec2 screen_pos;
+            float depth;
+        };
 
-Axis axes[3] = {
-    { glm::vec3(1.0f, 0.0f, 0.0f), IM_COL32(255, 50, 50, 255),  "X" },
-    { glm::vec3(0.0f, 1.0f, 0.0f), IM_COL32(50, 255, 50, 255),  "Y" },
-    { glm::vec3(0.0f, 0.0f, 1.0f), IM_COL32(50, 100, 255, 255), "Z" }
-};
+        Axis axes[3] = {
+            { glm::vec3(1.0f, 0.0f, 0.0f), IM_COL32(255, 50, 50, 255),  "X" },
+            { glm::vec3(0.0f, 1.0f, 0.0f), IM_COL32(50, 255, 50, 255),  "Y" },
+            { glm::vec3(0.0f, 0.0f, 1.0f), IM_COL32(50, 100, 255, 255), "Z" }
+        };
 
-for (int i = 0; i < 3; i++) {
-    glm::vec4 view_dir = view * glm::vec4(axes[i].world_dir, 0.0f);
+        for (int i = 0; i < 3; i++) {
+            glm::vec4 view_dir = view * glm::vec4(axes[i].world_dir, 0.0f);
 
-    axes[i].screen_pos = glm::vec2(
-        center.x + view_dir.x * axis_length,
-        center.y - view_dir.y * axis_length
-    );
-    axes[i].depth = view_dir.z; 
-}
+            axes[i].screen_pos = glm::vec2(
+            center.x + view_dir.x * axis_length,
+            center.y - view_dir.y * axis_length
+            );
+            axes[i].depth = view_dir.z; 
+        }
 
-std::sort(std::begin(axes), std::end(axes), [](const Axis& a, const Axis& b) {
-    return a.depth < b.depth;
-});
-for (int i = 0; i < 3; i++) {
-    ImVec2 end_pos = ImVec2(axes[i].screen_pos.x, axes[i].screen_pos.y);
-    float thickness = (axes[i].depth > 0.0f) ? 3.5f : 1.5f;
-    draw_list->AddLine(center, end_pos, axes[i].color, thickness);
-    ImVec2 text_size = ImGui::CalcTextSize(axes[i].label);
-    glm::vec2 dir_norm = glm::normalize(axes[i].screen_pos - glm::vec2(center.x, center.y));
-    ImVec2 text_pos = ImVec2(
-        end_pos.x + dir_norm.x * 12.0f - text_size.x / 2.0f,
-        end_pos.y + dir_norm.y * 12.0f - text_size.y / 2.0f
-    );
-    ImU32 text_color = axes[i].color;
-    if (axes[i].depth < 0.0f) {
-        text_color = (text_color & 0x00FFFFFF) | 0x80000000;
-    }
-
-    draw_list->AddText(text_pos, text_color, axes[i].label);
-}
-draw_list->AddCircleFilled(center, 3.0f, IM_COL32(255, 255, 255, 255));
-
-ImGui::Dummy(ImVec2(size, size)); 
-ImGui::End();
+        std::sort(std::begin(axes), std::end(axes), [](const Axis& a, const Axis& b) { return a.depth < b.depth; });
+        for (int i = 0; i < 3; i++) {
+            ImVec2 end_pos = ImVec2(axes[i].screen_pos.x, axes[i].screen_pos.y);
+            float thickness = (axes[i].depth > 0.0f) ? 3.5f : 1.5f;
+            draw_list->AddLine(center, end_pos, axes[i].color, thickness);
+            ImVec2 text_size = ImGui::CalcTextSize(axes[i].label);
+            glm::vec2 dir_norm = glm::normalize(axes[i].screen_pos - glm::vec2(center.x, center.y));
+            ImVec2 text_pos = ImVec2(
+                end_pos.x + dir_norm.x * 12.0f - text_size.x / 2.0f,
+                end_pos.y + dir_norm.y * 12.0f - text_size.y / 2.0f
+            );
+            ImU32 text_color = axes[i].color;
+            if (axes[i].depth < 0.0f) {
+                text_color = (text_color & 0x00FFFFFF) | 0x80000000;
+            }
+            draw_list->AddText(text_pos, text_color, axes[i].label);
+        }
+        draw_list->AddCircleFilled(center, 3.0f, IM_COL32(255, 255, 255, 255));
+        ImGui::Dummy(ImVec2(size, size)); 
+        ImGui::End();
 
         ImGui::Begin("Time");
         const int totalSec = static_cast<int>(time.getGameTimeSeconds());
@@ -541,7 +447,6 @@ ImGui::End();
             time.update();
 
             constexpr float DAY_LENGTH_GAME_SECONDS = 600.0f; // DEFAULT: 86400
-         //   float m_timeOfDay = std::fmod(static_cast<float>(time.getGameTimeSeconds()),DAY_LENGTH_GAME_SECONDS) / DAY_LENGTH_GAME_SECONDS;
             m_skyColor = getSkyColor(m_timeOfDay);
             clearColor[0] = m_skyColor.r;
             clearColor[1] = m_skyColor.g;
@@ -663,9 +568,10 @@ ImGui::End();
             .apiVersion = VK_API_VERSION_1_3
         };
 
-        VkInstanceCreateInfo createInfo{};
-        createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
-        createInfo.pApplicationInfo = &appInfo;
+        VkInstanceCreateInfo createInfo{
+        createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
+        createInfo.pApplicationInfo = &appInfo
+        };
 
         auto extensions = getRequiredExtensions();
         createInfo.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
@@ -677,7 +583,7 @@ ImGui::End();
             createInfo.ppEnabledLayerNames = validationLayers.data();
 
             populateDebugMessengerCreateInfo(debugCreateInfo);
-            createInfo.pNext = (VkDebugUtilsMessengerCreateInfoEXT*) &debugCreateInfo;
+            createInfo.pNext = &debugCreateInfo;
         } else {
             createInfo.enabledLayerCount = 0;
 
@@ -708,19 +614,6 @@ ImGui::End();
         if (CreateDebugUtilsMessengerEXT(instance, &createInfo, nullptr, &debugMessenger) != VK_SUCCESS) {
             throw std::runtime_error("failed to set up debug messenger!");
         }
-
-	auto func = (PFN_vkSubmitDebugUtilsMessageEXT) vkGetInstanceProcAddr(instance, "vkSubmitDebugUtilsMessageEXT");
-	if (func != nullptr){
-		VkDebugUtilsMessengerCallbackDataEXT callbackData{};
-		callbackData.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CALLBACK_DATA_EXT;
-        callbackData.pMessageIdName = "USER";
-		callbackData.pMessage = "TEST INFO";
-		func(instance, VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT, VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT, &callbackData);
-        callbackData.pMessage = "TEST WARNING";
-        func(instance, VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT, VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT, &callbackData);
-        callbackData.pMessage = "TEST ERROR";
-        func(instance, VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT, VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT, &callbackData);
-    }
 }
 
 
@@ -1052,28 +945,28 @@ ImGui::End();
         multisampling.sampleShadingEnable = VK_FALSE;
         multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
 
-        VkPipelineDepthStencilStateCreateInfo depthStencil{};
-        depthStencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-        depthStencil.depthTestEnable = VK_TRUE;
-        depthStencil.depthWriteEnable = VK_TRUE;
-        depthStencil.depthCompareOp = VK_COMPARE_OP_LESS;
-        depthStencil.depthBoundsTestEnable = VK_FALSE;
-        depthStencil.stencilTestEnable = VK_FALSE;
+        VkPipelineDepthStencilStateCreateInfo depthStencil{
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
+            .depthTestEnable = VK_TRUE,
+            .depthWriteEnable = VK_TRUE,
+            .depthCompareOp = VK_COMPARE_OP_LESS,
+            .depthBoundsTestEnable = VK_FALSE,
+            .stencilTestEnable = VK_FALSE
+        };
 
-        VkPipelineColorBlendAttachmentState colorBlendAttachment{};
-        colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-        colorBlendAttachment.blendEnable = VK_FALSE;
+        VkPipelineColorBlendAttachmentState colorBlendAttachment{
+            .blendEnable = VK_FALSE,
+            .colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT
+        };
 
-        VkPipelineColorBlendStateCreateInfo colorBlending{};
-        colorBlending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
-        colorBlending.logicOpEnable = VK_FALSE;
-        colorBlending.logicOp = VK_LOGIC_OP_COPY;
-        colorBlending.attachmentCount = 1;
-        colorBlending.pAttachments = &colorBlendAttachment;
-        colorBlending.blendConstants[0] = 0.0f;
-        colorBlending.blendConstants[1] = 0.0f;
-        colorBlending.blendConstants[2] = 0.0f;
-        colorBlending.blendConstants[3] = 0.0f;
+        VkPipelineColorBlendStateCreateInfo colorBlending{
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
+            .logicOpEnable = VK_FALSE,
+            .logicOp = VK_LOGIC_OP_COPY,
+            .attachmentCount = 1,
+            .pAttachments = &colorBlendAttachment,
+            .blendConstants = {0.0f, 0.0f, 0.0f, 0.0f}
+        };
 
         std::vector<VkDynamicState> dynamicStates = {
             VK_DYNAMIC_STATE_VIEWPORT,
@@ -1191,10 +1084,6 @@ ImGui::End();
         VK_IMAGE_TILING_OPTIMAL,
         VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT
     );
-}
-
-    bool hasStencilComponent(VkFormat format) {
-        return format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT;
     }
 
     void createTextureImage() {
@@ -1622,19 +1511,6 @@ ImGui::End();
         endSingleTimeCommands(commandBuffer);
     }
 
-    uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) {
-        VkPhysicalDeviceMemoryProperties memProperties;
-        vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memProperties);
-
-        for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++) {
-            if ((typeFilter & (1 << i)) && (memProperties.memoryTypes[i].propertyFlags & properties) == properties) {
-                return i;
-            }
-        }
-
-        throw std::runtime_error("failed to find suitable memory type!");
-    }
-
     void createCommandBuffers() {
         commandBuffers.resize(MAX_FRAMES_IN_FLIGHT);
 
@@ -1927,10 +1803,11 @@ ImGui::End();
     }
 
     VkShaderModule createShaderModule(const std::vector<char>& code) {
-        VkShaderModuleCreateInfo createInfo{};
-        createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-        createInfo.codeSize = code.size();
-        createInfo.pCode = reinterpret_cast<const uint32_t*>(code.data());
+        VkShaderModuleCreateInfo createInfo{
+            .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+            .codeSize = code.size(),
+            .pCode = reinterpret_cast<const uint32_t*>(code.data())
+        };
 
         VkShaderModule shaderModule;
         if (vkCreateShaderModule(device, &createInfo, nullptr, &shaderModule) != VK_SUCCESS) {
