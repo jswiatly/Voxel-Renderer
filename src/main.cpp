@@ -1231,7 +1231,6 @@ private:
             .image = image,
             .viewType = VK_IMAGE_VIEW_TYPE_2D,
             .format = format,
-            // Standard C++20 nested designated initializer syntax
             .subresourceRange = {
                 .aspectMask = aspectFlags,
                 .baseMipLevel = 0,
@@ -1276,18 +1275,21 @@ private:
     void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t mipLevels) {
         VkCommandBuffer commandBuffer = beginSingleTimeCommands();
 
-        VkImageMemoryBarrier barrier{};
-        barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-        barrier.oldLayout = oldLayout;
-        barrier.newLayout = newLayout;
-        barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-        barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-        barrier.image = image;
-        barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-        barrier.subresourceRange.baseMipLevel = 0;
-        barrier.subresourceRange.levelCount = mipLevels;
-        barrier.subresourceRange.baseArrayLayer = 0;
-        barrier.subresourceRange.layerCount = 1;
+        VkImageMemoryBarrier barrier{
+            .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+            .oldLayout = oldLayout,
+            .newLayout = newLayout,
+            .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+            .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+            .image = image,
+            .subresourceRange = {
+                .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                .baseMipLevel = 0,
+                .levelCount = mipLevels,
+                .baseArrayLayer = 0,
+                .layerCount = 1
+            },
+        };
 
         VkPipelineStageFlags sourceStage;
         VkPipelineStageFlags destinationStage;
@@ -1697,10 +1699,10 @@ private:
 
     void addFace(glm::vec3 offset, int face, glm::vec3 color) {
     static constexpr glm::vec2 FACE_UV[4] = {
-        {0.f, 1.f},  // dół-lewo
-        {1.f, 1.f},  // dół-prawo
-        {1.f, 0.f},  // góra-prawo
-        {0.f, 0.f},  // góra-lewo
+        {0.f, 1.f},
+        {1.f, 1.f},
+        {1.f, 0.f},
+        {0.f, 0.f},
     };
 
     uint32_t start = static_cast<uint32_t>(vertices.size());
