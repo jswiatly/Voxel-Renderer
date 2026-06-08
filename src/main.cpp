@@ -921,15 +921,17 @@ private:
         vertexInputInfo.pVertexBindingDescriptions = &bindingDescription;
         vertexInputInfo.pVertexAttributeDescriptions = attributeDescriptions.data();
 
-        VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
-        inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-        inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-        inputAssembly.primitiveRestartEnable = VK_FALSE;
+        VkPipelineInputAssemblyStateCreateInfo inputAssembly{
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
+            .topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
+            .primitiveRestartEnable = VK_FALSE
+        };
 
-        VkPipelineViewportStateCreateInfo viewportState{};
-        viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
-        viewportState.viewportCount = 1;
-        viewportState.scissorCount = 1;
+        VkPipelineViewportStateCreateInfo viewportState{
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
+            .viewportCount = 1,
+            .scissorCount = 1
+        };
 
         VkPipelineRasterizationStateCreateInfo rasterizer{
             .sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
@@ -942,10 +944,11 @@ private:
             .lineWidth = 1.0f
         };
 
-        VkPipelineMultisampleStateCreateInfo multisampling{};
-        multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-        multisampling.sampleShadingEnable = VK_FALSE;
-        multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+        VkPipelineMultisampleStateCreateInfo multisampling{
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
+            .rasterizationSamples = VK_SAMPLE_COUNT_1_BIT,
+            .sampleShadingEnable = VK_FALSE,
+        };
 
         VkPipelineDepthStencilStateCreateInfo depthStencil{
             .sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
@@ -1215,7 +1218,7 @@ private:
             .compareEnable = VK_FALSE,
             .compareOp = VK_COMPARE_OP_ALWAYS,
             .minLod = 0.0f,
-            .maxLod = 0.0f,
+            .maxLod = static_cast<float>(mipLevels),
             .borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK,
             .unnormalizedCoordinates = VK_FALSE
         };
@@ -1699,15 +1702,21 @@ private:
 
     void addFace(glm::vec3 offset, int face, glm::vec3 color) {
     static constexpr glm::vec2 FACE_UV[4] = {
-        {0.f, 1.f},
-        {1.f, 1.f},
-        {1.f, 0.f},
-        {0.f, 0.f},
+        {0.f, 1.f}, {1.f, 1.f}, {1.f, 0.f}, {0.f, 0.f},
     };
+
+    static constexpr float FACE_SHADE[6] = {
+        0.7f, 0.7f,
+        0.45f, 0.45f,
+        0.3f,
+        1.0f
+    };
+
+    glm::vec3 shaded = color * FACE_SHADE[face];
 
     uint32_t start = static_cast<uint32_t>(vertices.size());
     for (int i = 0; i < 4; ++i) {
-        vertices.push_back({ FACE_VERTS[face][i] + offset, color, FACE_UV[i] });
+        vertices.push_back({ FACE_VERTS[face][i] + offset, shaded, FACE_UV[i] });
     }
     indices.push_back(start + 0);
     indices.push_back(start + 1);
@@ -1715,7 +1724,7 @@ private:
     indices.push_back(start + 2);
     indices.push_back(start + 3);
     indices.push_back(start + 0);
-}
+    }
 
     void generateMinecraftScene() {
         vertices.clear();
@@ -1772,7 +1781,7 @@ private:
                 int h = heightMap[gx * SIZE + gz];
             for (int y = -6; y <= h; ++y) {
                 float s = 0.25f + (y + 8) * 0.012f;
-                glm::vec3 col(s * 0.7f, s, s * 0.6f);
+                glm::vec3 col(0.9f);
 
             for (int f = 0; f < 6; ++f) {
                 glm::ivec3 d = FACE_DIR[f];
