@@ -1,8 +1,8 @@
 # Vesta
 
-A voxel engine built from scratch in modern **C++17** and **Vulkan 1.3**.
+A voxel engine built from scratch in modern **C++20** and **Vulkan 1.3**.
 
-`C++17` · `Vulkan 1.3` · `GLFW` · `GLM` · `Dear ImGui` · `VMA`
+`C++20` · `Vulkan 1.3` · `GLFW` · `GLM` · `Dear ImGui` · `VMA`
 
 <!--
  ![Vesta demo](docs/demo.gif)
