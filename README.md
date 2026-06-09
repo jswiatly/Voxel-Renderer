@@ -86,15 +86,14 @@ Planned directions, not yet implemented:
 ## Motivation
 
 Voxel games are usually remembered as gameplay, rarely as rendering. But the genre is
-quietly one of the most demanding things you can ask a renderer to do — enormous,
+quietly one of the most demanding things you can ask a renderer to do - enormous,
 fully dynamic worlds where geometry changes constantly and the view distance is never
 big enough.
 
-Most existing voxel engines were built on older stacks (Java + OpenGL being the classic
-combination), and they leave a lot of modern hardware on the table: large L3 caches,
+Most existing voxel engines were built on older stacks (Java + OpenGL), and they leave a lot of modern hardware on the table: large L3 caches,
 high core counts, and ray-tracing-capable GPUs that mostly sit idle. Projects like the ray-traced builds of
 Minecraft: Bedrock Edition showed how good the genre *can* look before that work stalled.
 
-Vesta is my attempt to start from a clean, modern foundation — C++20 and Vulkan 1.3 —
+Vesta is my attempt to start from a clean, modern foundation - C++20 and Vulkan 1.3 -
 and see how much performance and visual range that foundation actually unlocks when the
 hardware is treated as a first-class target. It's also how I'm learning real-time graphics.
