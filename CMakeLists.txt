@@ -1,8 +1,10 @@
 cmake_minimum_required(VERSION 3.10)
-project(VulkanTest)
+project(Vesta)
 
 find_package(Vulkan REQUIRED)
 
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(EXTERNAL_DIR "${CMAKE_CURRENT_SOURCE_DIR}/external")
 set(IMGUI_DIR "${EXTERNAL_DIR}/imgui")
 
@@ -19,6 +21,8 @@ set(IMGUI_SOURCES
 add_executable(Vesta 
     src/main.cpp
     src/Time.cpp
+    src/scene/Sky.cpp
+    src/core/Window.cpp
     ${IMGUI_SOURCES}
 )
 

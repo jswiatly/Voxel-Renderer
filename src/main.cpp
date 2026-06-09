@@ -25,7 +25,6 @@
 #include <array>
 #include <set>
 #include <unordered_map>
-// #include <format> <- compiler is freaky about this
 #include <mutex>
 
 #include "imgui.h"
@@ -42,6 +41,9 @@ const std::string MODEL_PATH = "models/viking_room.obj";
 const std::string TEXTURE_PATH = "textures/test.jpg";
 
 const int MAX_FRAMES_IN_FLIGHT = 2;
+
+constexpr int WIDTH = 800;
+constexpr int HEIGHT = 800;
 
 #ifdef NDEBUG
 const bool enableValidationLayers = false;
@@ -125,7 +127,6 @@ namespace std {
 }
 
 struct UniformBufferObject {
- //   alignas(16) glm::mat4 model;
     alignas(16) glm::mat4 view;
     alignas(16) glm::mat4 proj;
 };
@@ -133,20 +134,20 @@ struct UniformBufferObject {
 class Application {
 public:
     void run() {
-        initWindow();
+        initInput();
         initVulkan();
         mainLoop();
         cleanup();
     }
 
 private:
+    Window window_{WIDTH, HEIGHT, "Vesta"};
     Camera camera;
     VulkanDevice vulkanDevice;
     vkr::Time time;
     float clearColor[4] = {0,0,0,1};
     float m_timeOfDay = 0.0f;
     glm::vec4 m_skyColor = {0,0,0,1};
-    GLFWwindow* window;
     VmaAllocator allocator;
 
     VkInstance instance;
@@ -207,8 +208,6 @@ private:
     std::vector<VkFence> inFlightFences;
     uint32_t currentFrame = 0;
 
-    bool framebufferResized = false;
-
     struct ValidationLog {
         VkDebugUtilsMessageSeverityFlagBitsEXT severity;
         std::string message;
@@ -222,35 +221,8 @@ private:
     bool cursorMode = false;
     bool MouseModeKeyWasPressed = false;
 
-    void initWindow() {
-        glfwInit();
-
-        glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-
-        window = glfwCreateWindow(WIDTH, HEIGHT, "Vesta", nullptr, nullptr);
-        glfwSetWindowUserPointer(window, this);
-        glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
-        glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-
-        glfwSetCursorPosCallback(window, [](GLFWwindow* window, double xpos, double ypos) {
-            auto app = reinterpret_cast<Application*>(glfwGetWindowUserPointer(window));
-            if (ImGui::GetIO().WantCaptureMouse || app->cursorMode) return;
-
-            if (app->firstMouse) {
-                app->lastX = xpos; app->lastY = ypos; app->firstMouse = false;
-            }
-
-            float xoffset = xpos - app->lastX;
-            float yoffset = app->lastY - ypos;
-    
-            app->lastX = xpos; app->lastY = ypos;
-        app->camera.processMouseMovement(xoffset, yoffset); 
-    });
-    }
-
-    static void framebufferResizeCallback(GLFWwindow* window, int width, int height) {
-        auto app = reinterpret_cast<Application*>(glfwGetWindowUserPointer(window));
-        app->framebufferResized = true;
+    void initInput() {
+        glfwSetInputMode(window_.handle(), GLFW_CURSOR, GLFW_CURSOR_DISABLED);
     }
 
     void initVulkan() {
@@ -280,7 +252,6 @@ private:
         createTextureImage();
         createTextureImageView();
         createTextureSampler();
-        // loadModel();
         DumpVMAMemoryStats(allocator, "vma_stats_init.json");
         generateMinecraftScene();
 
@@ -295,64 +266,38 @@ private:
     }
 
     void processInput(GLFWwindow* window) {
-        const float dt = time.getDeltaTime();
+    const float dt = time.getDeltaTime();
 
-        bool fKeyPressed = glfwGetKey(window, GLFW_KEY_F) == GLFW_PRESS;
-    
-        if (fKeyPressed && !MouseModeKeyWasPressed) {
-            cursorMode = !cursorMode;
-            if (cursorMode) {
-                glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
-            } else {
-                glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-                firstMouse = true;
-            }
-        }
-        MouseModeKeyWasPressed = fKeyPressed;
+    bool fKeyPressed = glfwGetKey(window, GLFW_KEY_F) == GLFW_PRESS;
+    if (fKeyPressed && !MouseModeKeyWasPressed) {
+        cursorMode = !cursorMode;
+        glfwSetInputMode(window, GLFW_CURSOR, 
+            cursorMode ? GLFW_CURSOR_NORMAL : GLFW_CURSOR_DISABLED);
+        if (!cursorMode) firstMouse = true;
+    }
+    MouseModeKeyWasPressed = fKeyPressed;
 
-        if (!cursorMode) {
+    if (!cursorMode) {
         if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) camera.processKeyboard(0, dt);
         if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) camera.processKeyboard(1, dt);
         if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) camera.processKeyboard(2, dt);
         if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) camera.processKeyboard(3, dt);
+
+        if (!ImGui::GetIO().WantCaptureMouse) {
+            double xpos, ypos;
+            glfwGetCursorPos(window, &xpos, &ypos);
+            if (firstMouse) {
+                lastX = static_cast<float>(xpos);
+                lastY = static_cast<float>(ypos);
+                firstMouse = false;
+            }
+            float xoffset = static_cast<float>(xpos) - lastX;
+            float yoffset = lastY - static_cast<float>(ypos);
+            lastX = static_cast<float>(xpos);
+            lastY = static_cast<float>(ypos);
+            camera.processMouseMovement(xoffset, yoffset);
+            }
         }
-    }
-
-    void loadModel() {
-        tinyobj::attrib_t attrib;
-        std::vector<tinyobj::shape_t> shapes;
-        std::vector<tinyobj::material_t> materials;
-        std::string err, warn;
-
-        if (!tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, MODEL_PATH.c_str(), nullptr, true, true)) {
-    throw std::runtime_error(warn + err);
-}
-
-        std::unordered_map<Vertex, uint32_t> uniqueVertices{};
-
-        for (const auto& shape : shapes) {
-    for (const auto& index : shape.mesh.indices) {
-        Vertex vertex{};
-
-        vertex.pos = {
-            attrib.vertices[3 * index.vertex_index + 0],
-            attrib.vertices[3 * index.vertex_index + 1],
-            attrib.vertices[3 * index.vertex_index + 2]
-        };
-
-        if (index.texcoord_index >= 0) {
-            vertex.texCoord = {
-                attrib.texcoords[2 * index.texcoord_index + 0],
-                1.0f - attrib.texcoords[2 * index.texcoord_index + 1]
-            };
-        }
-
-        vertex.color = {1.0f, 1.0f, 1.0f};
-
-        vertices.push_back(vertex);
-        indices.push_back(indices.size());
-    }
-}
     }
 
     void DrawImGui(){
@@ -444,11 +389,11 @@ private:
 
 
     void mainLoop() {
-        while (!glfwWindowShouldClose(window)) {
+        while (!window_.shouldClose()) {
             glfwPollEvents();
             time.update();
 
-            constexpr float DAY_LENGTH_GAME_SECONDS = 600.0f; // DEFAULT: 86400
+            constexpr float DAY_LENGTH_GAME_SECONDS = 10.0f; // DEFAULT: 86400
             m_skyColor = getSkyColor(m_timeOfDay);
             clearColor[0] = m_skyColor.r;
             clearColor[1] = m_skyColor.g;
@@ -461,7 +406,7 @@ private:
             DrawImGui();
             drawValidationLogWindow();
             ImGui::Render();
-            processInput(window);
+            processInput(window_.handle());
             drawFrame();
         }
 
@@ -531,17 +476,13 @@ private:
 
         vkDestroySurfaceKHR(instance, surface, nullptr);
         vkDestroyInstance(instance, nullptr);
-
-        glfwDestroyWindow(window);
-
-        glfwTerminate();
     }
 
     void recreateSwapChain() {
         int width = 0, height = 0;
-        glfwGetFramebufferSize(window, &width, &height);
+        window_.getFramebufferSize(width, height);
         while (width == 0 || height == 0) {
-            glfwGetFramebufferSize(window, &width, &height);
+            window_.getFramebufferSize(width, height);
             glfwWaitEvents();
         }
 
@@ -563,16 +504,16 @@ private:
 
         VkApplicationInfo appInfo{
             .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
-            .pApplicationName = "Hello Triangle",
-            .applicationVersion = VK_MAKE_VERSION(1, 0, 0),
-            .pEngineName = "No Engine",
-            .engineVersion = VK_MAKE_VERSION(1, 0, 0),
+            .pApplicationName = "Vesta",
+            .applicationVersion = VK_MAKE_VERSION(0, 1, 0),
+            .pEngineName = "Vesta",
+            .engineVersion = VK_MAKE_VERSION(0, 1, 0),
             .apiVersion = VK_API_VERSION_1_3
         };
 
         VkInstanceCreateInfo createInfo{
-        createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
-        createInfo.pApplicationInfo = &appInfo
+            .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
+            .pApplicationInfo = &appInfo
         };
 
         auto extensions = getRequiredExtensions();
@@ -620,7 +561,7 @@ private:
 
 
     void createSurface() {
-        if (glfwCreateWindowSurface(instance, window, nullptr, &surface) != VK_SUCCESS) {
+        if (glfwCreateWindowSurface(instance, window_.handle(), nullptr, &surface) != VK_SUCCESS) {
             throw std::runtime_error("failed to create window surface!");
         }
     }
@@ -1466,7 +1407,7 @@ private:
     ImGuiIO& io = ImGui::GetIO(); (void)io;
     ImGui::StyleColorsDark();
 
-    ImGui_ImplGlfw_InitForVulkan(window, true);
+    ImGui_ImplGlfw_InitForVulkan(window_.handle(), true);
 
     ImGui_ImplVulkan_InitInfo init_info = {};
     init_info.Instance = instance;
@@ -1891,8 +1832,8 @@ private:
 
         result = vkQueuePresentKHR(presentQueue, &presentInfo);
 
-        if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || framebufferResized) {
-            framebufferResized = false;
+        if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || window_.wasResized()) {
+            window_.resetResizeFlag();
             recreateSwapChain();
         } else if (result != VK_SUCCESS) {
             throw std::runtime_error("failed to present swap chain image!");
@@ -1941,7 +1882,7 @@ private:
             return capabilities.currentExtent;
         } else {
             int width, height;
-            glfwGetFramebufferSize(window, &width, &height);
+            window_.getFramebufferSize(width, height);
 
             VkExtent2D actualExtent = {
                 static_cast<uint32_t>(width),
