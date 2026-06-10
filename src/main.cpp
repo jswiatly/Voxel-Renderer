@@ -1,12 +1,12 @@
 #define GLFW_INCLUDE_VULKAN
-#define VULKAN_DEVICE_IMPLEMENTATION
 #define STB_IMAGE_IMPLEMENTATION
-#define TINYOBJLOADER_IMPLEMENTATION
 
 #include <GLFW/glfw3.h>
 #include <glm/gtc/constants.hpp>
 #include <stb_image.h>
-#include <tiny_obj_loader.h>
+
+#define VMA_IMPLEMENTATION
+#include "vk_mem_alloc.h"
 
 #include <iostream>
 #include <fstream>
@@ -19,11 +19,11 @@
 #include <set>
 #include <unordered_map>
 #include <mutex>
+#include <optional>
 
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_vulkan.h"
-#include "core/Device.hpp"
 #include "core/Window.hpp"
 #include "scene/Camera.hpp"
 #include "scene/Sky.hpp"
@@ -68,6 +68,21 @@ void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT
     }
 }
 
+struct QueueFamilyIndices {
+    std::optional<uint32_t> graphicsFamily;
+    std::optional<uint32_t> presentFamily;
+
+    bool isComplete() {
+        return graphicsFamily.has_value() && presentFamily.has_value();
+    }
+};
+
+struct SwapChainSupportDetails {
+    VkSurfaceCapabilitiesKHR capabilities;
+    std::vector<VkSurfaceFormatKHR> formats;
+    std::vector<VkPresentModeKHR> presentModes;
+};
+
 class Application {
 public:
     void run() {
@@ -80,7 +95,6 @@ public:
 private:
     Window window_{WIDTH, HEIGHT, "Vesta"};
     Camera camera;
-    VulkanDevice vulkanDevice;
     vkr::Time time;
     float clearColor[4] = {0,0,0,1};
     float m_timeOfDay = 0.0f;
