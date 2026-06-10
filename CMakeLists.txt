@@ -23,6 +23,8 @@ add_executable(Vesta
     src/Time.cpp
     src/scene/Sky.cpp
     src/core/Window.cpp
+    src/renderer/Vertex.cpp
+    src/scene/Terrain.cpp
     ${IMGUI_SOURCES}
 )
 
