@@ -1,24 +1,17 @@
 #define GLFW_INCLUDE_VULKAN
-#include <GLFW/glfw3.h>
-
-#define GLM_FORCE_RADIANS
-#define GLM_FORCE_DEPTH_ZERO_TO_ONE
-#define GLM_ENABLE_EXPERIMENTAL
-#include <glm/gtx/hash.hpp>
-#include <glm/glm.hpp>
-#include <glm/gtc/constants.hpp>
-
+#define VULKAN_DEVICE_IMPLEMENTATION
 #define STB_IMAGE_IMPLEMENTATION
-#include <stb_image.h>
-
 #define TINYOBJLOADER_IMPLEMENTATION
+
+#include <GLFW/glfw3.h>
+#include <glm/gtc/constants.hpp>
+#include <stb_image.h>
 #include <tiny_obj_loader.h>
 
 #include <iostream>
 #include <fstream>
 #include <stdexcept>
 #include <algorithm>
-#include <chrono>
 #include <cstdlib>
 #include <cstdint>
 #include <limits>
@@ -30,14 +23,14 @@
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_vulkan.h"
-#define VULKAN_DEVICE_IMPLEMENTATION
 #include "core/Device.hpp"
 #include "core/Window.hpp"
 #include "scene/Camera.hpp"
 #include "scene/Sky.hpp"
 #include "Time.hpp"
+#include "renderer/Vertex.hpp"
+#include "scene/Terrain.hpp"
 
-const std::string MODEL_PATH = "models/viking_room.obj";
 const std::string TEXTURE_PATH = "textures/test.jpg";
 
 const int MAX_FRAMES_IN_FLIGHT = 2;
@@ -75,62 +68,6 @@ void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT
     }
 }
 
-struct Vertex {
-    glm::vec3 pos;
-    glm::vec3 color;
-    glm::vec2 texCoord;
-
-    bool operator==(const Vertex& other) const {
-        return pos == other.pos && color == other.color && texCoord == other.texCoord;
-    }
-
-    static VkVertexInputBindingDescription getBindingDescription() {
-        VkVertexInputBindingDescription bindingDescription{
-            .binding = 0,
-            .stride = sizeof(Vertex),
-            .inputRate = VK_VERTEX_INPUT_RATE_VERTEX,
-        };
-
-        return bindingDescription;
-    }
-
-    static std::array<VkVertexInputAttributeDescription, 3> getAttributeDescriptions() {
-        std::array<VkVertexInputAttributeDescription, 3> attributeDescriptions{};
-
-        attributeDescriptions[0].binding = 0;
-        attributeDescriptions[0].location = 0;
-        attributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
-        attributeDescriptions[0].offset = offsetof(Vertex, pos);
-
-        attributeDescriptions[1].binding = 0;
-        attributeDescriptions[1].location = 1;
-        attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
-        attributeDescriptions[1].offset = offsetof(Vertex, color);
-
-        attributeDescriptions[2].binding = 0;
-        attributeDescriptions[2].location = 2;
-        attributeDescriptions[2].format = VK_FORMAT_R32G32_SFLOAT;
-        attributeDescriptions[2].offset = offsetof(Vertex, texCoord);
-
-        return attributeDescriptions;
-    }
-};
-
-namespace std {
-    template<> struct hash<Vertex> {
-        size_t operator()(Vertex const& vertex) const {
-            return ((hash<glm::vec3>()(vertex.pos) ^
-                   (hash<glm::vec3>()(vertex.color) << 1)) >> 1) ^
-                   (hash<glm::vec2>()(vertex.texCoord) << 1);
-        }
-    };
-}
-
-struct UniformBufferObject {
-    alignas(16) glm::mat4 view;
-    alignas(16) glm::mat4 proj;
-};
-
 class Application {
 public:
     void run() {
@@ -147,6 +84,9 @@ private:
     vkr::Time time;
     float clearColor[4] = {0,0,0,1};
     float m_timeOfDay = 0.0f;
+    bool  m_manualTime = false;
+    float m_manualTOD = 0.5f;
+
     glm::vec4 m_skyColor = {0,0,0,1};
     VmaAllocator allocator;
 
@@ -253,8 +193,7 @@ private:
         createTextureImageView();
         createTextureSampler();
         DumpVMAMemoryStats(allocator, "vma_stats_init.json");
-        generateMinecraftScene();
-
+        generateTerrain(vertices, indices);
         createVertexBuffer();
         createIndexBuffer();
         createUniformBuffers();
@@ -304,14 +243,13 @@ private:
         ImGui::Begin("Debug");
         int hh = static_cast<int>(m_timeOfDay * 24.0f);
         int mm = static_cast<int>(m_timeOfDay * 24.0f * 60.0f) % 60;
-        ImGui::Text("In-game time: %02d:%02d", hh, mm);
+        int ss = static_cast<int>(m_timeOfDay * 24.0f * 60.0f);
+        ImGui::Text("In-game time: %02d:%02d:%02d", hh, mm, ss);
         ImGui::ColorButton("Sky", ImVec4(m_skyColor.r, m_skyColor.g, m_skyColor.b, m_skyColor.a), 0, ImVec2(80, 20));
-        static bool manualTime = false;
-        static float manualTOD = 0.5f;
-        ImGui::Checkbox("Manual time of day", &manualTime);
-        if (manualTime) {
-            ImGui::SliderFloat("Time of day", &manualTOD, 0.0f, 1.0f);
-            m_timeOfDay = manualTOD;
+        ImGui::Checkbox("Manual time of day", &m_manualTime);
+        if (m_manualTime) {
+            ImGui::SliderFloat("Time of day", &m_manualTOD, 0.0f, 1.0f);
+            m_timeOfDay = m_manualTOD;
         }
         ImGui::End();
 
@@ -377,14 +315,6 @@ private:
         draw_list->AddCircleFilled(center, 3.0f, IM_COL32(255, 255, 255, 255));
         ImGui::Dummy(ImVec2(size, size)); 
         ImGui::End();
-
-        ImGui::Begin("Time");
-        const int totalSec = static_cast<int>(time.getGameTimeSeconds());
-        const int h = totalSec / 3600;
-        const int m = (totalSec % 3600) / 60;
-        const int s = totalSec % 60;
-        ImGui::Text("Game time: %02d:%02d:%02d", h, m, s);
-        ImGui::End();
     }
 
 
@@ -393,7 +323,11 @@ private:
             glfwPollEvents();
             time.update();
 
-            constexpr float DAY_LENGTH_GAME_SECONDS = 10.0f; // DEFAULT: 86400
+            constexpr float DAY_LENGTH_GAME_SECONDS = 250.0f; // DEFAULT: 86400
+            if (!m_manualTime) {
+                m_timeOfDay = std::fmod(static_cast<float>(time.getGameTimeSeconds()),
+                                    DAY_LENGTH_GAME_SECONDS) / DAY_LENGTH_GAME_SECONDS;
+            }
             m_skyColor = getSkyColor(m_timeOfDay);
             clearColor[0] = m_skyColor.r;
             clearColor[1] = m_skyColor.g;
@@ -1351,15 +1285,9 @@ private:
     uniformBuffersMapped.resize(MAX_FRAMES_IN_FLIGHT);
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-        // Define the access flags
         VmaAllocationCreateFlags flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
-        
-        // Pass 'flags' into the newly updated function signature
         createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_AUTO, 
                      uniformBuffers[i], uniformBuffersAllocation[i], flags);
-        
-        // Because VMA now knows the CPU needs access, it will pick a HOST_VISIBLE memory heap,
-        // and this manual mapping call will succeed perfectly without errors!
         vmaMapMemory(allocator, uniformBuffersAllocation[i], &uniformBuffersMapped[i]);
     }
 }
@@ -1486,7 +1414,7 @@ private:
     };
 
     VmaAllocationCreateInfo allocInfo{
-        .flags = vmaFlags, // Now the flags passed from the caller are actually used!
+        .flags = vmaFlags,
         .usage = vmaUsage
     };
 
@@ -1620,119 +1548,6 @@ private:
         if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {
             throw std::runtime_error("failed to record command buffer!");
         }
-    }
-
-    static constexpr glm::vec3 FACE_VERTS[6][4] = {
-    // FRONT (+Z)
-    {{-0.5f,-0.5f, 0.5f},{ 0.5f,-0.5f, 0.5f},{ 0.5f, 0.5f, 0.5f},{-0.5f, 0.5f, 0.5f}},
-    // BACK (-Z)
-    {{ 0.5f,-0.5f,-0.5f},{-0.5f,-0.5f,-0.5f},{-0.5f, 0.5f,-0.5f},{ 0.5f, 0.5f,-0.5f}},
-    // LEFT (-X)
-    {{-0.5f,-0.5f,-0.5f},{-0.5f,-0.5f, 0.5f},{-0.5f, 0.5f, 0.5f},{-0.5f, 0.5f,-0.5f}},
-    // RIGHT (+X)
-    {{ 0.5f,-0.5f, 0.5f},{ 0.5f,-0.5f,-0.5f},{ 0.5f, 0.5f,-0.5f},{ 0.5f, 0.5f, 0.5f}},
-    // BOTTOM (-Y)
-    {{-0.5f,-0.5f,-0.5f},{ 0.5f,-0.5f,-0.5f},{ 0.5f,-0.5f, 0.5f},{-0.5f,-0.5f, 0.5f}},
-    // TOP (+Y)
-    {{-0.5f, 0.5f, 0.5f},{ 0.5f, 0.5f, 0.5f},{ 0.5f, 0.5f,-0.5f},{-0.5f, 0.5f,-0.5f}},
-    };
-
-    static constexpr glm::ivec3 FACE_DIR[6] = {
-        {0, 0, 1}, { 0, 0,-1}, {-1, 0, 0}, { 1, 0, 0}, { 0,-1, 0}, { 0, 1, 0}
-    };
-
-    void addFace(glm::vec3 offset, int face, glm::vec3 color) {
-    static constexpr glm::vec2 FACE_UV[4] = {
-        {0.f, 1.f}, {1.f, 1.f}, {1.f, 0.f}, {0.f, 0.f},
-    };
-
-    static constexpr float FACE_SHADE[6] = {
-        0.7f, 0.7f,
-        0.45f, 0.45f,
-        0.3f,
-        1.0f
-    };
-
-    glm::vec3 shaded = color * FACE_SHADE[face];
-
-    uint32_t start = static_cast<uint32_t>(vertices.size());
-    for (int i = 0; i < 4; ++i) {
-        vertices.push_back({ FACE_VERTS[face][i] + offset, shaded, FACE_UV[i] });
-    }
-    indices.push_back(start + 0);
-    indices.push_back(start + 1);
-    indices.push_back(start + 2);
-    indices.push_back(start + 2);
-    indices.push_back(start + 3);
-    indices.push_back(start + 0);
-    }
-
-    void generateMinecraftScene() {
-        vertices.clear();
-        indices.clear();
-
-        constexpr int SIZE = 220;
-        constexpr int HALF = SIZE / 2;
-
-        std::vector<int> heightMap(SIZE * SIZE);
-
-        auto noise = [](float x, float z) {
-            float xi = std::floor(x), zi = std::floor(z);
-            float xf = x - xi,        zf = z - zi;
-            auto h = [](float a, float b) {
-                float v = std::sin(a * 127.1f + b * 311.7f) * 43758.5453f;
-                return v - std::floor(v);
-            };
-            float u = xf * xf * (3.f - 2.f * xf);
-            float v = zf * zf * (3.f - 2.f * zf);
-            return glm::mix(glm::mix(h(xi, zi),     h(xi + 1, zi),     u),
-                            glm::mix(h(xi, zi + 1), h(xi + 1, zi + 1), u), v);
-        };
-
-        auto fbm = [&](float x, float z) {
-            float t = 0.f, a = 1.f, f = 1.f, n = 0.f;
-            for (int i = 0; i < 6; ++i) {
-                float v = noise(x * f, z * f);
-                t += (1.f - std::abs(v - 0.5f) * 2.f) * a;
-                n += a; a *= 0.5f; f *= 2.0f;
-            }
-            return t / n;
-        };
-
-        for (int gx = 0; gx < SIZE; ++gx) {
-            for (int gz = 0; gz < SIZE; ++gz) {
-                int x = gx - HALF;
-                int z = gz - HALF;
-                int h = static_cast<int>(fbm(x * 0.018f, z * 0.018f) * 60.f) - 8;
-                heightMap[gx * SIZE + gz] = h;
-            }
-        }
-
-        auto isSolid = [&](int x, int y, int z) {
-            int gx = x + HALF, gz = z + HALF;
-            if (gx < 0 || gx >= SIZE || gz < 0 || gz >= SIZE) return false;
-            if (y < -6) return true;
-            return y <= heightMap[gx * SIZE + gz];
-        };
-
-        for (int gx = 0; gx < SIZE; ++gx) {
-            for (int gz = 0; gz < SIZE; ++gz) {
-                int x = gx - HALF;
-                int z = gz - HALF;
-                int h = heightMap[gx * SIZE + gz];
-            for (int y = -6; y <= h; ++y) {
-                float s = 0.25f + (y + 8) * 0.012f;
-                glm::vec3 col(0.9f);
-
-            for (int f = 0; f < 6; ++f) {
-                glm::ivec3 d = FACE_DIR[f];
-                if (!isSolid(x + d.x, y + d.y, z + d.z)) {
-                    addFace(glm::vec3(x, y, z), f, col);
-                }
-            }
-        }
-    }
-}
     }
 
     void createSyncObjects() {
