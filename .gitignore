@@ -1,0 +1,4 @@
+build/
+*.exe
+imgui.ini
+vma_stats_*.json
