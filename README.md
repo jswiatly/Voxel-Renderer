@@ -1,5 +1,7 @@
 # Vesta
 
+[![build](https://github.com/jswiatly/Vesta-Engine/actions/workflows/build.yml/badge.svg)](https://github.com/jswiatly/Vesta-Engine/actions/workflows/build.yml)
+
 A voxel engine built from scratch in modern **C++20** and **Vulkan 1.3**.
 
 `C++20` · `Vulkan 1.3` · `GLFW` · `GLM` · `Dear ImGui` · `VMA`
