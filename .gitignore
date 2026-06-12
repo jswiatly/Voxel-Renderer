@@ -1,4 +1,6 @@
-build/
+build*/
 *.exe
+*.spv
 imgui.ini
 vma_stats_*.json
+external/
