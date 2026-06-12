@@ -77,7 +77,23 @@ Requirements:
 - A C++20 compiler (MSVC, GCC/MinGW, Clang)
 
 All other dependencies (GLFW, GLM, Dear ImGui, VMA) are fetched automatically
-by CMake at configure time — no manual setup needed.
+by CMake at configure time - no manual setup needed.
+
+```sh
+git clone https://github.com/jswiatly/Vesta-Engine.git
+cd Vesta-Engine
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build -j
+```
+
+On Linux, GLFW additionally needs the windowing-system headers:
+
+```sh
+sudo apt install xorg-dev libwayland-dev libxkbcommon-dev wayland-protocols
+```
+
+Run `Vesta` from the build directory (shaders and assets are copied next to
+the executable at build time).
 
 ## Roadmap
 
