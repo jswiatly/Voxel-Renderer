@@ -83,6 +83,98 @@ struct SwapChainSupportDetails {
     std::vector<VkPresentModeKHR> presentModes;
 };
 
+void SetupVestaStyle()
+{
+    ImGuiStyle& style = ImGui::GetStyle();
+    ImVec4* colors = style.Colors;
+
+    // --- 1. Sizing and Spacing ---
+    style.WindowPadding = ImVec2(10.0f, 10.0f);
+    style.FramePadding = ImVec2(6.0f, 4.0f);
+    style.ItemSpacing = ImVec2(8.0f, 4.0f);
+    style.ScrollbarSize = 15.0f;
+    style.GrabMinSize = 10.0f;
+
+    // --- 2. Borders & Rounding ---
+    style.WindowRounding = 0.0f;
+    style.FrameRounding = 0.0f;
+    style.PopupRounding = 0.0f;
+    style.ScrollbarRounding = 0.0f;
+    style.GrabRounding = 0.0f;
+    style.TabRounding = 0.0f;
+
+    style.WindowBorderSize = 1.0f;
+    style.FrameBorderSize = 1.0f;
+
+    // --- 3. Color Palette: deep crystal sea ---
+
+    // Text
+    colors[ImGuiCol_Text] = ImVec4(0.88f, 0.96f, 0.97f, 1.00f);
+    colors[ImGuiCol_TextDisabled] = ImVec4(0.36f, 0.54f, 0.58f, 1.00f);
+
+    // Backgrounds
+    colors[ImGuiCol_WindowBg] = ImVec4(0.04f, 0.09f, 0.11f, 1.00f); // Deep ocean
+    colors[ImGuiCol_ChildBg] = ImVec4(0.05f, 0.11f, 0.14f, 1.00f);
+    colors[ImGuiCol_PopupBg] = ImVec4(0.04f, 0.09f, 0.11f, 0.96f);
+
+    // Borders
+    colors[ImGuiCol_Border] = ImVec4(0.10f, 0.32f, 0.38f, 0.70f);
+    colors[ImGuiCol_BorderShadow] = ImVec4(0.00f, 0.00f, 0.00f, 0.00f);
+
+    // Frames (Inputs, Checkboxes, etc.)
+    colors[ImGuiCol_FrameBg] = ImVec4(0.07f, 0.17f, 0.21f, 1.00f);
+    colors[ImGuiCol_FrameBgHovered] = ImVec4(0.10f, 0.26f, 0.32f, 1.00f);
+    colors[ImGuiCol_FrameBgActive] = ImVec4(0.13f, 0.36f, 0.44f, 1.00f);
+
+    // Title Bars
+    colors[ImGuiCol_TitleBg] = ImVec4(0.05f, 0.12f, 0.15f, 1.00f);
+    colors[ImGuiCol_TitleBgActive] = ImVec4(0.08f, 0.24f, 0.30f, 1.00f);
+    colors[ImGuiCol_TitleBgCollapsed] = ImVec4(0.03f, 0.07f, 0.09f, 1.00f);
+
+    // Menus
+    colors[ImGuiCol_MenuBarBg] = ImVec4(0.06f, 0.14f, 0.17f, 1.00f);
+
+    // Scrollbars
+    colors[ImGuiCol_ScrollbarBg] = ImVec4(0.03f, 0.08f, 0.10f, 1.00f);
+    colors[ImGuiCol_ScrollbarGrab] = ImVec4(0.12f, 0.32f, 0.38f, 1.00f);
+    colors[ImGuiCol_ScrollbarGrabHovered] = ImVec4(0.16f, 0.44f, 0.52f, 1.00f);
+    colors[ImGuiCol_ScrollbarGrabActive] = ImVec4(0.20f, 0.58f, 0.68f, 1.00f);
+
+    // Interactables
+    colors[ImGuiCol_CheckMark] = ImVec4(0.30f, 0.95f, 1.00f, 1.00f);
+    colors[ImGuiCol_SliderGrab] = ImVec4(0.20f, 0.75f, 0.85f, 1.00f);
+    colors[ImGuiCol_SliderGrabActive] = ImVec4(0.40f, 0.95f, 1.00f, 1.00f);
+    colors[ImGuiCol_Button] = ImVec4(0.09f, 0.30f, 0.38f, 1.00f);
+    colors[ImGuiCol_ButtonHovered] = ImVec4(0.13f, 0.44f, 0.55f, 1.00f);
+    colors[ImGuiCol_ButtonActive] = ImVec4(0.18f, 0.60f, 0.72f, 1.00f);
+    colors[ImGuiCol_Header] = ImVec4(0.09f, 0.30f, 0.38f, 1.00f);
+    colors[ImGuiCol_HeaderHovered] = ImVec4(0.13f, 0.44f, 0.55f, 1.00f);
+    colors[ImGuiCol_HeaderActive] = ImVec4(0.18f, 0.60f, 0.72f, 1.00f);
+
+    // Tabs
+    colors[ImGuiCol_Tab] = ImVec4(0.06f, 0.18f, 0.23f, 1.00f);
+    colors[ImGuiCol_TabHovered] = ImVec4(0.15f, 0.48f, 0.58f, 1.00f);
+    colors[ImGuiCol_TabSelected] = ImVec4(0.10f, 0.32f, 0.40f, 1.00f);
+    colors[ImGuiCol_TabDimmed] = ImVec4(0.04f, 0.11f, 0.14f, 1.00f);
+    colors[ImGuiCol_TabDimmedSelected] = ImVec4(0.06f, 0.18f, 0.23f, 1.00f);
+
+    // Tables
+    colors[ImGuiCol_TableHeaderBg] = ImVec4(0.08f, 0.22f, 0.28f, 1.00f);
+    colors[ImGuiCol_TableBorderStrong] = ImVec4(0.12f, 0.34f, 0.42f, 1.00f);
+    colors[ImGuiCol_TableBorderLight] = ImVec4(0.08f, 0.22f, 0.28f, 1.00f);
+    colors[ImGuiCol_TableRowBgAlt] = ImVec4(1.00f, 1.00f, 1.00f, 0.04f);
+
+    // Misc
+    colors[ImGuiCol_TextSelectedBg] = ImVec4(0.20f, 0.70f, 0.85f, 0.35f);
+    colors[ImGuiCol_DragDropTarget] = ImVec4(0.40f, 0.95f, 1.00f, 0.90f);
+    colors[ImGuiCol_NavCursor] = ImVec4(0.30f, 0.90f, 1.00f, 1.00f);
+
+#ifdef IMGUI_HAS_DOCK
+    colors[ImGuiCol_DockingPreview] = ImVec4(0.20f, 0.70f, 0.85f, 0.50f);
+    colors[ImGuiCol_DockingEmptyBg] = ImVec4(0.04f, 0.09f, 0.11f, 1.00f);
+#endif
+}
+
 class Application {
 public:
     void run() {
@@ -1018,15 +1110,18 @@ private:
 
     VkCommandBuffer commandBuffer = beginSingleTimeCommands();
 
-    VkImageMemoryBarrier barrier{};
-    barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-    barrier.image = image;
-    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    barrier.subresourceRange.baseArrayLayer = 0;
-    barrier.subresourceRange.layerCount = 1;
-    barrier.subresourceRange.levelCount = 1;
+    VkImageMemoryBarrier barrier{
+        .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .image = image,
+        .subresourceRange = {
+            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+            .levelCount = 1,
+            .baseArrayLayer = 0,
+            .layerCount = 1,
+        }
+    };
 
     int32_t mipWidth = texWidth;
     int32_t mipHeight = textHeight;
@@ -1347,7 +1442,12 @@ private:
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO(); (void)io;
-    ImGui::StyleColorsDark();
+    ImFontConfig cfg;
+    cfg.OversampleH = 1;
+    cfg.OversampleV = 1;
+    cfg.PixelSnapH  = true;
+   // io.Fonts->AddFontFromFileTTF("fonts/VT323-Regular.ttf", 16.0f, &cfg);
+    SetupVestaStyle();
 
     ImGui_ImplGlfw_InitForVulkan(window_.handle(), true);
 
