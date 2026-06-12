@@ -53,7 +53,6 @@ These are implemented and working today.
 | GPU memory | VMA (Vulkan Memory Allocator) |
 | UI / debug | Dear ImGui |
 | Image loading | stb_image |
-| Model loading | tinyobjloader |
 
 Language standard: **C++20**.
 
@@ -71,7 +70,14 @@ Language standard: **C++20**.
 
 ## Building
 
-> **Note:** this section is a template.
+Requirements:
+
+- [Vulkan SDK](https://vulkan.lunarg.com/) (includes the `glslc` shader compiler)
+- CMake 3.24+
+- A C++20 compiler (MSVC, GCC/MinGW, Clang)
+
+All other dependencies (GLFW, GLM, Dear ImGui, VMA) are fetched automatically
+by CMake at configure time — no manual setup needed.
 
 ## Roadmap
 
