@@ -4,10 +4,10 @@
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #define GLM_ENABLE_EXPERIMENTAL
 
-#include <vulkan/vulkan.h>
+#include <array>
 #include <glm/glm.hpp>
 #include <glm/gtx/hash.hpp>
-#include <array>
+#include <vulkan/vulkan.h>
 
 struct Vertex {
     glm::vec3 pos;
@@ -27,7 +27,7 @@ struct UniformBufferObject {
 };
 
 namespace std {
-    template<> struct hash<Vertex> {
-        size_t operator()(Vertex const& vertex) const;
-    };
-}
+template <> struct hash<Vertex> {
+    size_t operator()(Vertex const& vertex) const;
+};
+} // namespace std

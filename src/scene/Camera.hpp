@@ -3,7 +3,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 class Camera {
-public:
+  public:
     glm::vec3 position;
     glm::vec3 front;
     glm::vec3 up;
@@ -28,10 +28,14 @@ public:
 
     void processKeyboard(int direction, float deltaTime) {
         float velocity = movementSpeed * deltaTime;
-        if (direction == 0) position += front * velocity; // W
-        if (direction == 1) position -= front * velocity; // S
-        if (direction == 2) position -= glm::normalize(glm::cross(front, up)) * velocity; // A
-        if (direction == 3) position += glm::normalize(glm::cross(front, up)) * velocity; // D
+        if (direction == 0)
+            position += front * velocity; // W
+        if (direction == 1)
+            position -= front * velocity; // S
+        if (direction == 2)
+            position -= glm::normalize(glm::cross(front, up)) * velocity; // A
+        if (direction == 3)
+            position += glm::normalize(glm::cross(front, up)) * velocity; // D
     }
 
     void processMouseMovement(float xoffset, float yoffset) {
@@ -41,13 +45,15 @@ public:
         yaw += xoffset;
         pitch += yoffset;
 
-        if (pitch > 89.0f) pitch = 89.0f;
-        if (pitch < -89.0f) pitch = -89.0f;
+        if (pitch > 89.0f)
+            pitch = 89.0f;
+        if (pitch < -89.0f)
+            pitch = -89.0f;
 
         updateCameraVectors();
     }
 
-private:
+  private:
     void updateCameraVectors() {
         glm::vec3 newFront;
         newFront.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));

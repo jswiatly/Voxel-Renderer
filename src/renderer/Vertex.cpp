@@ -31,7 +31,6 @@ std::array<VkVertexInputAttributeDescription, 3> Vertex::getAttributeDescription
 }
 
 size_t std::hash<Vertex>::operator()(Vertex const& vertex) const {
-    return ((std::hash<glm::vec3>()(vertex.pos) ^
-           (std::hash<glm::vec3>()(vertex.color) << 1)) >> 1) ^
+    return ((std::hash<glm::vec3>()(vertex.pos) ^ (std::hash<glm::vec3>()(vertex.color) << 1)) >> 1) ^
            (std::hash<glm::vec2>()(vertex.texCoord) << 1);
 }
