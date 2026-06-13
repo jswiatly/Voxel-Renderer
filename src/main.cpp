@@ -23,6 +23,7 @@
 
 #include "Time.hpp"
 #include "core/Window.hpp"
+#include "core/Debug.hpp"
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_vulkan.h"
@@ -47,27 +48,6 @@ const bool enableValidationLayers = true;
 const std::vector<const char*> validationLayers = {"VK_LAYER_KHRONOS_validation"};
 
 const std::vector<const char*> deviceExtensions = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
-
-VkResult CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo,
-                                      const VkAllocationCallbacks* pAllocator,
-                                      VkDebugUtilsMessengerEXT* pDebugMessenger) {
-    auto func = reinterpret_cast<PFN_vkCreateDebugUtilsMessengerEXT>(
-        vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT"));
-    if (func != nullptr) {
-        return func(instance, pCreateInfo, pAllocator, pDebugMessenger);
-    } else {
-        return VK_ERROR_EXTENSION_NOT_PRESENT;
-    }
-}
-
-void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger,
-                                   const VkAllocationCallbacks* pAllocator) {
-    auto func = reinterpret_cast<PFN_vkDestroyDebugUtilsMessengerEXT>(
-        vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT"));
-    if (func != nullptr) {
-        func(instance, debugMessenger, pAllocator);
-    }
-}
 
 struct QueueFamilyIndices {
     std::optional<uint32_t> graphicsFamily;
@@ -187,6 +167,7 @@ class Application {
   private:
     Window window_{WIDTH, HEIGHT, "Vesta"};
     Camera camera;
+    ValidationLogger m_validationLog;
     vkr::Time time;
     float clearColor[4] = {0, 0, 0, 1};
     float m_timeOfDay = 0.0f;
@@ -197,7 +178,6 @@ class Application {
     VmaAllocator allocator;
 
     VkInstance instance;
-    VkDebugUtilsMessengerEXT debugMessenger;
     VkSurfaceKHR surface;
 
     VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
@@ -254,14 +234,6 @@ class Application {
     std::vector<VkFence> inFlightFences;
     uint32_t currentFrame = 0;
 
-    struct ValidationLog {
-        VkDebugUtilsMessageSeverityFlagBitsEXT severity;
-        std::string message;
-    };
-
-    std::vector<ValidationLog> validationLogs;
-    std::mutex logMutex;
-
     float lastX = 400, lastY = 300;
     bool firstMouse = true;
     bool cursorMode = false;
@@ -273,7 +245,7 @@ class Application {
 
     void initVulkan() {
         createInstance();
-        setupDebugMessenger();
+        if (enableValidationLayers) m_validationLog.setup(instance);
         createSurface();
         pickPhysicalDevice();
         createLogicalDevice();
@@ -440,7 +412,7 @@ class Application {
             ImGui_ImplGlfw_NewFrame();
             ImGui::NewFrame();
             DrawImGui();
-            drawValidationLogWindow();
+            m_validationLog.drawImGuiWindow();
             ImGui::Render();
             processInput(window_.handle());
             drawFrame();
@@ -507,9 +479,7 @@ class Application {
 
         vkDestroyDevice(device, nullptr);
 
-        if (enableValidationLayers) {
-            DestroyDebugUtilsMessengerEXT(instance, debugMessenger, nullptr);
-        }
+        m_validationLog.cleanup(instance);
 
         vkDestroySurfaceKHR(instance, surface, nullptr);
         vkDestroyInstance(instance, nullptr);
@@ -557,7 +527,7 @@ class Application {
             createInfo.enabledLayerCount = static_cast<uint32_t>(validationLayers.size());
             createInfo.ppEnabledLayerNames = validationLayers.data();
 
-            populateDebugMessengerCreateInfo(debugCreateInfo);
+            debugCreateInfo = m_validationLog.makeCreateInfo();
             createInfo.pNext = &debugCreateInfo;
         } else {
             createInfo.enabledLayerCount = 0;
@@ -567,31 +537,6 @@ class Application {
 
         if (vkCreateInstance(&createInfo, nullptr, &instance) != VK_SUCCESS) {
             throw std::runtime_error("failed to create instance!");
-        }
-    }
-
-    void populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo) {
-        createInfo = {.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
-                      .messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT |
-                                         VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
-                                         VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT |
-                                         VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT,
-                      .messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
-                                     VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
-                                     VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT,
-                      .pfnUserCallback = debugCallback,
-                      .pUserData = this};
-    }
-
-    void setupDebugMessenger() {
-        if (!enableValidationLayers)
-            return;
-
-        VkDebugUtilsMessengerCreateInfoEXT createInfo;
-        populateDebugMessengerCreateInfo(createInfo);
-
-        if (CreateDebugUtilsMessengerEXT(instance, &createInfo, nullptr, &debugMessenger) != VK_SUCCESS) {
-            throw std::runtime_error("failed to set up debug messenger!");
         }
     }
 
@@ -733,38 +678,6 @@ class Application {
             swapChainImageViews[i] =
                 createImageView(swapChainImages[i], swapChainImageFormat, VK_IMAGE_ASPECT_COLOR_BIT, 1);
         }
-    }
-
-    void drawValidationLogWindow() {
-        ImGui::Begin("Vulkan Validation Layers");
-        ImGui::Separator();
-        ImGui::BeginChild("LogRegion", ImVec2(0, 0), false, ImGuiWindowFlags_HorizontalScrollbar);
-        std::lock_guard<std::mutex> lock(logMutex);
-
-        for (const auto& log : validationLogs) {
-            ImVec4 color;
-            std::string displayText = log.message;
-            if (log.severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT) {
-                color = ImVec4(1.0f, 0.4f, 0.4f, 1.0f);
-                displayText = "[ERROR] " + log.message;
-            } else if (log.severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT) {
-                color = ImVec4(1.0f, 0.8f, 0.3f, 1.0f);
-                displayText = "[WARNING] " + log.message;
-            } else if (log.severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT) {
-                color = ImVec4(0.4f, 0.8f, 0.3f, 1.0f);
-                displayText = "[INFO] " + log.message;
-            } else {
-                displayText = "[OTHER] " + log.message;
-                color = ImVec4(0.7f, 0.7f, 0.7f, 1.0f);
-            }
-
-            ImGui::PushStyleColor(ImGuiCol_Text, color);
-            ImGui::TextWrapped("%s", displayText.c_str());
-            ImGui::PopStyleColor();
-            ImGui::Separator();
-        }
-        ImGui::EndChild();
-        ImGui::End();
     }
 
     void createRenderPass() {
@@ -1911,28 +1824,6 @@ class Application {
         file.close();
 
         return buffer;
-    }
-
-    static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
-                                                        VkDebugUtilsMessageTypeFlagsEXT messageType,
-                                                        const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
-                                                        void* pUserData) {
-        if (messageSeverity == VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT) {
-            if (pCallbackData->pMessageIdName == nullptr || std::string(pCallbackData->pMessageIdName) != "USER") {
-                return VK_FALSE;
-            }
-        }
-
-        auto app = reinterpret_cast<Application*>(pUserData);
-
-        if (app != nullptr) {
-            std::lock_guard<std::mutex> lock(app->logMutex);
-            app->validationLogs.push_back({messageSeverity, pCallbackData->pMessage});
-        }
-
-        std::cerr << "validation layer: " << pCallbackData->pMessage << std::endl;
-
-        return VK_FALSE;
     }
 };
 
