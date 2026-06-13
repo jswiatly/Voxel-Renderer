@@ -349,7 +349,7 @@ private:
         ImGui::Begin("Debug");
         int hh = static_cast<int>(m_timeOfDay * 24.0f);
         int mm = static_cast<int>(m_timeOfDay * 24.0f * 60.0f) % 60;
-        int ss = static_cast<int>(m_timeOfDay * 24.0f * 60.0f);
+        int ss = static_cast<int>(m_timeOfDay * 24.0f * 3600.0f) % 60;
         ImGui::Text("In-game time: %02d:%02d:%02d", hh, mm, ss);
         ImGui::ColorButton("Sky", ImVec4(m_skyColor.r, m_skyColor.g, m_skyColor.b, m_skyColor.a), 0, ImVec2(80, 20));
         ImGui::Checkbox("Manual time of day", &m_manualTime);
@@ -507,6 +507,7 @@ private:
         }
 
         vkDestroyCommandPool(device, commandPool, nullptr);
+        vmaDestroyAllocator(allocator);
 
         vkDestroyDevice(device, nullptr);
 
@@ -1397,7 +1398,9 @@ private:
         VmaAllocationCreateFlags flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
         createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_AUTO, 
                      uniformBuffers[i], uniformBuffersAllocation[i], flags);
-        vmaMapMemory(allocator, uniformBuffersAllocation[i], &uniformBuffersMapped[i]);
+        VmaAllocationInfo info;
+        vmaGetAllocationInfo(allocator, uniformBuffersAllocation[i], &info);
+        uniformBuffersMapped[i] = info.pMappedData;
     }
 }
 
