@@ -57,6 +57,7 @@ add_executable(Vesta
     src/main.cpp
     src/Time.cpp
     src/core/Window.cpp
+    src/core/Debug.cpp
     src/renderer/Vertex.cpp
     src/scene/Sky.cpp
     src/scene/Terrain.cpp
