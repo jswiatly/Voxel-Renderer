@@ -357,3 +357,22 @@ void VulkanContext::createLogicalDevice(bool enableValidationLayers) {
 
         return true;
     }
+
+    VkImageView VulkanContext::createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags,
+                                           uint32_t mipLevels) {
+    VkImageViewCreateInfo viewInfo{.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+                                   .image = image,
+                                   .viewType = VK_IMAGE_VIEW_TYPE_2D,
+                                   .format = format,
+                                   .subresourceRange = {.aspectMask = aspectFlags,
+                                                        .baseMipLevel = 0,
+                                                        .levelCount = mipLevels,
+                                                        .baseArrayLayer = 0,
+                                                        .layerCount = 1}};
+
+    VkImageView imageView;
+    if (vkCreateImageView(m_device, &viewInfo, nullptr, &imageView) != VK_SUCCESS) {
+        throw std::runtime_error("failed to create image view!");
+    }
+    return imageView;
+}
