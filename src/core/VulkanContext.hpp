@@ -45,6 +45,7 @@ class VulkanContext{
         void createImage(uint32_t width, uint32_t height, uint32_t mipLevels, VkFormat format,
                      VkImageTiling tiling, VkImageUsageFlags usage, VmaMemoryUsage vmaUsage,
                      VkImage& image, VmaAllocation& allocation);
+        VkImageView createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, uint32_t mipLevels);
         QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device) const;
         SwapChainSupportDetails querySwapChainSupport(VkPhysicalDevice device) const;
 
