@@ -58,6 +58,7 @@ add_executable(Vesta
     src/Time.cpp
     src/core/Window.cpp
     src/core/Debug.cpp
+    src/core/VulkanContext.cpp
     src/renderer/Vertex.cpp
     src/scene/Sky.cpp
     src/scene/Terrain.cpp
