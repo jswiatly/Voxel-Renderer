@@ -13,9 +13,10 @@
 
 #include <algorithm>
 #include <stdexcept>
+#include <array>
 
 namespace {
-    void SetupVestaStyle() {
+    void SetupStyle() {
     ImGuiStyle& style = ImGui::GetStyle();
     ImVec4* colors = style.Colors;
 
@@ -134,7 +135,7 @@ void ImGuiLayer::init(VulkanContext& ctx, Window& window, VkRenderPass renderPas
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO();
     (void)io;
-    SetupVestaStyle();
+    SetupStyle();
 
     ImGui_ImplGlfw_InitForVulkan(window.handle(), true);
 
