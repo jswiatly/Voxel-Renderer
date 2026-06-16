@@ -66,6 +66,7 @@ add_executable(Vesta
     src/core/Texture.cpp
     src/core/InputHandler.cpp
     src/core/Pipeline.cpp
+    src/core/Mesh.cpp
 )
 
 target_include_directories(Vesta PRIVATE src)

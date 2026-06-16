@@ -36,13 +36,8 @@
 #include "core/Texture.hpp"
 #include "core/InputHandler.hpp"
 #include "core/Pipeline.hpp"
-
-const std::string TEXTURE_PATH = "textures/test.jpg";
-
-const int MAX_FRAMES_IN_FLIGHT = 2;
-
-constexpr int WIDTH = 800;
-constexpr int HEIGHT = 800;
+#include "core/Constants.hpp"
+#include "core/Mesh.hpp"
 
 #ifdef NDEBUG
 const bool enableValidationLayers = false;
@@ -160,6 +155,7 @@ class Application {
     Texture m_texture;
     InputHandler m_input;
     Pipeline m_pipeline;
+    Mesh m_mesh;
 
     float clearColor[4] = {0, 0, 0, 1};
     float m_timeOfDay = 0.0f;
@@ -167,20 +163,6 @@ class Application {
     float m_manualTOD = 0.5f;
 
     glm::vec4 m_skyColor = {0, 0, 0, 1};
-
-    std::vector<Vertex> vertices;
-    std::vector<uint32_t> indices;
-    VkBuffer vertexBuffer;
-    VmaAllocation vertexBufferAllocation;
-    VkBuffer indexBuffer;
-    VmaAllocation indexBufferAllocation;
-
-    std::vector<VkBuffer> uniformBuffers;
-    std::vector<VmaAllocation> uniformBuffersAllocation;
-    std::vector<void*> uniformBuffersMapped;
-
-    VkDescriptorPool descriptorPool;
-    std::vector<VkDescriptorSet> descriptorSets;
 
     VkDescriptorPool imguiPool;
 
@@ -204,16 +186,13 @@ class Application {
         m_swapchain.init(m_context, window_);
         m_pipeline.init(m_context, m_swapchain.imageFormat(), m_swapchain.depthFormat());
         m_swapchain.createFramebuffers(m_pipeline.renderPass());
-        m_swapchain.createFramebuffers(m_pipeline.renderPass());
         CreateRenderFinishedSemaphores();
         m_texture.init(m_context, TEXTURE_PATH);
         DumpVMAMemoryStats(m_context.allocator(), "vma_stats_init.json");
+        std::vector<Vertex> vertices;
+        std::vector<uint32_t> indices;
         generateTerrain(vertices, indices);
-        createVertexBuffer();
-        createIndexBuffer();
-        createUniformBuffers();
-        createDescriptorPool();
-        createDescriptorSets();
+        m_mesh.init(m_context, m_pipeline, m_texture, vertices, indices);
         createCommandBuffers();
         createSyncObjects();
         initImGui();
@@ -335,18 +314,8 @@ class Application {
         vkDestroyDescriptorPool(device, imguiPool, nullptr);
 
         m_pipeline.cleanup();
-
-        for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-            vmaDestroyBuffer(allocator, uniformBuffers[i], uniformBuffersAllocation[i]);
-        }
-
-        vkDestroyDescriptorPool(device, descriptorPool, nullptr);
-
+        m_mesh.cleanup();
         m_texture.cleanup();
-
-        vmaDestroyBuffer(allocator, indexBuffer, indexBufferAllocation);
-
-        vmaDestroyBuffer(allocator, vertexBuffer, vertexBufferAllocation);
 
         for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
             vkDestroySemaphore(device, imageAvailableSemaphores[i], nullptr);
@@ -366,49 +335,6 @@ class Application {
         CreateRenderFinishedSemaphores();
     } 
 
-    void createVertexBuffer() {
-        VmaAllocator allocator = m_context.allocator();
-        VkDeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
-
-        VkBuffer stagingBuffer;
-        VmaAllocation stagingBufferAllocation;
-        m_context.createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_AUTO, stagingBuffer,
-                     stagingBufferAllocation, VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT);
-
-        void* data;
-        vmaMapMemory(allocator, stagingBufferAllocation, &data);
-        memcpy(data, vertices.data(), (size_t)bufferSize);
-
-        vmaUnmapMemory(allocator, stagingBufferAllocation);
-
-        m_context.createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-                     VMA_MEMORY_USAGE_AUTO, vertexBuffer, vertexBufferAllocation);
-
-        copyBuffer(stagingBuffer, vertexBuffer, bufferSize);
-        vmaDestroyBuffer(allocator, stagingBuffer, stagingBufferAllocation);
-    }
-
-    void createIndexBuffer() {
-        VmaAllocator allocator = m_context.allocator();
-        VkDeviceSize bufferSize = sizeof(indices[0]) * indices.size();
-
-        VkBuffer stagingBuffer;
-        VmaAllocation stagingBufferAllocation;
-        m_context.createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_AUTO, stagingBuffer,
-                     stagingBufferAllocation, VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT);
-
-        void* data;
-        vmaMapMemory(allocator, stagingBufferAllocation, &data);
-        memcpy(data, indices.data(), (size_t)bufferSize);
-        vmaUnmapMemory(allocator, stagingBufferAllocation);
-
-        m_context.createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
-                     VMA_MEMORY_USAGE_AUTO, indexBuffer, indexBufferAllocation);
-
-        copyBuffer(stagingBuffer, indexBuffer, bufferSize);
-        vmaDestroyBuffer(allocator, stagingBuffer, stagingBufferAllocation);
-    }
-
     void DumpVMAMemoryStats(VmaAllocator allocator, const char* filename) {
         char* statsString = nullptr;
 
@@ -424,44 +350,6 @@ class Application {
         }
 
         vmaFreeStatsString(allocator, statsString);
-    }
-    
-    void createUniformBuffers() {
-        VmaAllocator allocator = m_context.allocator();
-        VkDeviceSize bufferSize = sizeof(UniformBufferObject);
-
-        uniformBuffers.resize(MAX_FRAMES_IN_FLIGHT);
-        uniformBuffersAllocation.resize(MAX_FRAMES_IN_FLIGHT);
-        uniformBuffersMapped.resize(MAX_FRAMES_IN_FLIGHT);
-
-        for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-            VmaAllocationCreateFlags flags =
-                VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
-            m_context.createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_AUTO, uniformBuffers[i],
-                         uniformBuffersAllocation[i], flags);
-            VmaAllocationInfo info;
-            vmaGetAllocationInfo(allocator, uniformBuffersAllocation[i], &info);
-            uniformBuffersMapped[i] = info.pMappedData;
-        }
-    }
-
-    void createDescriptorPool() {
-        VkDevice device = m_context.device();
-        std::array<VkDescriptorPoolSize, 2> poolSizes{};
-        poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        poolSizes[0].descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
-        poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-        poolSizes[1].descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
-
-        VkDescriptorPoolCreateInfo poolInfo{};
-        poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-        poolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
-        poolInfo.pPoolSizes = poolSizes.data();
-        poolInfo.maxSets = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
-
-        if (vkCreateDescriptorPool(device, &poolInfo, nullptr, &descriptorPool) != VK_SUCCESS) {
-            throw std::runtime_error("failed to create descriptor pool!");
-        }
     }
 
     void createImGuiDescriptorPool() {
@@ -523,64 +411,6 @@ class Application {
         ImGui_ImplVulkan_Init(&init_info);
     }
 
-    void createDescriptorSets() {
-        VkDevice device = m_context.device();
-        std::vector<VkDescriptorSetLayout> layouts(MAX_FRAMES_IN_FLIGHT, m_pipeline.descriptorSetLayout());
-        VkDescriptorSetAllocateInfo allocInfo{};
-        allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-        allocInfo.descriptorPool = descriptorPool;
-        allocInfo.descriptorSetCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
-        allocInfo.pSetLayouts = layouts.data();
-
-        descriptorSets.resize(MAX_FRAMES_IN_FLIGHT);
-        if (vkAllocateDescriptorSets(device, &allocInfo, descriptorSets.data()) != VK_SUCCESS) {
-            throw std::runtime_error("failed to allocate descriptor sets!");
-        }
-
-        for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-            VkDescriptorBufferInfo bufferInfo{};
-            bufferInfo.buffer = uniformBuffers[i];
-            bufferInfo.offset = 0;
-            bufferInfo.range = sizeof(UniformBufferObject);
-
-            VkDescriptorImageInfo imageInfo{};
-            imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-            imageInfo.imageView = m_texture.imageView();
-            imageInfo.sampler = m_texture.sampler();
-
-            std::array<VkWriteDescriptorSet, 2> descriptorWrites{};
-
-            descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            descriptorWrites[0].dstSet = descriptorSets[i];
-            descriptorWrites[0].dstBinding = 0;
-            descriptorWrites[0].dstArrayElement = 0;
-            descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-            descriptorWrites[0].descriptorCount = 1;
-            descriptorWrites[0].pBufferInfo = &bufferInfo;
-
-            descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-            descriptorWrites[1].dstSet = descriptorSets[i];
-            descriptorWrites[1].dstBinding = 1;
-            descriptorWrites[1].dstArrayElement = 0;
-            descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-            descriptorWrites[1].descriptorCount = 1;
-            descriptorWrites[1].pImageInfo = &imageInfo;
-
-            vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0,
-                                   nullptr);
-        }
-    }
-
-    void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size) {
-        VkCommandBuffer commandBuffer = m_context.beginSingleTimeCommands();
-
-        VkBufferCopy copyRegion{};
-        copyRegion.size = size;
-        vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
-
-        m_context.endSingleTimeCommands(commandBuffer);
-    }
-
     void createCommandBuffers() {
         VkDevice device = m_context.device();
         VkCommandPool commandPool = m_context.commandPool();
@@ -637,20 +467,21 @@ class Application {
         scissor.extent = m_swapchain.extent();
         vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
-        VkBuffer vertexBuffers[] = {vertexBuffer};
+        VkBuffer vertexBuffers[] = {m_mesh.vertexBuffer()};
         VkDeviceSize offsets[] = {0};
         vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
 
-        vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+        vkCmdBindIndexBuffer(commandBuffer, m_mesh.indexBuffer(), 0, VK_INDEX_TYPE_UINT32);
 
+        VkDescriptorSet descriptorSet = m_mesh.descriptorSet(currentFrame);
         vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline.pipelineLayout(), 0, 1,
-                                &descriptorSets[currentFrame], 0, nullptr);
+                                &descriptorSet, 0, nullptr);
 
         glm::mat4 model = glm::mat4(1.0f);
 
         vkCmdPushConstants(commandBuffer, m_pipeline.pipelineLayout(), VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &model);
 
-        vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
+        vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(m_mesh.indexCount()), 1, 0, 0, 0);
 
         ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), commandBuffer);
 
@@ -696,15 +527,11 @@ class Application {
     }
 
     void updateUniformBuffer(uint32_t currentImage) {
-        UniformBufferObject ubo{};
-
-        ubo.view = camera.getViewMatrix();
-        ubo.proj =
-            glm::perspective(glm::radians(45.0f), m_swapchain.extent().width / (float)m_swapchain.extent().height, 0.1f, 1000.0f);
-
-        ubo.proj[1][1] *= -1;
-
-        memcpy(uniformBuffersMapped[currentImage], &ubo, sizeof(ubo));
+        glm::mat4 view = camera.getViewMatrix();
+        glm::mat4 proj = glm::perspective(glm::radians(45.0f),
+                                          m_swapchain.extent().width / (float)m_swapchain.extent().height, 0.1f, 1000.0f);
+        proj[1][1] *= -1;
+        m_mesh.updateUniforms(currentImage, view, proj);
     }
 
     void drawFrame() {
