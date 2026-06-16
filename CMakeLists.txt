@@ -64,6 +64,8 @@ add_executable(Vesta
     src/scene/Terrain.cpp
     src/core/Swapchain.cpp
     src/core/Texture.cpp
+    src/core/InputHandler.cpp
+    src/core/Pipeline.cpp
 )
 
 target_include_directories(Vesta PRIVATE src)
