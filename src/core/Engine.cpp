@@ -1,0 +1,124 @@
+#define GLFW_INCLUDE_VULKAN
+#include <GLFW/glfw3.h>
+
+#define STB_IMAGE_IMPLEMENTATION
+#include <stb_image.h>
+
+#define VMA_IMPLEMENTATION
+#include "vk_mem_alloc.h"
+
+#include "core/Engine.hpp"
+#include "renderer/Vertex.hpp"
+#include "scene/Sky.hpp"
+#include "scene/Terrain.hpp"
+
+#include <glm/gtc/matrix_transform.hpp>
+
+#include <cmath>
+#include <fstream>
+#include <iostream>
+#include <vector>
+
+#ifdef NDEBUG
+const bool enableValidationLayers = false;
+#else
+const bool enableValidationLayers = true;
+#endif
+
+void Vesta::run() {
+    std::cout << R"(
+__/\\\________/\\\__/\\\\\\\\\\\\\\\_____/\\\\\\\\\\\____/\\\\\\\\\\\\\\\_____/\\\\\\\\\____        
+ _\/\\\_______\/\\\_\/\\\///////////____/\\\/////////\\\_\///////\\\/////____/\\\\\\\\\\\\\__       
+  _\//\\\______/\\\__\/\\\______________\//\\\______\///________\/\\\________/\\\/////////\\\_      
+   __\//\\\____/\\\___\/\\\\\\\\\\\_______\////\\\_______________\/\\\_______\/\\\_______\/\\\_     
+    ___\//\\\__/\\\____\/\\\///////___________\////\\\____________\/\\\_______\/\\\\\\\\\\\\\\\_    
+     ____\//\\\/\\\_____\/\\\_____________________\////\\\_________\/\\\_______\/\\\/////////\\\_   
+      _____\//\\\\\______\/\\\______________/\\\______\//\\\________\/\\\_______\/\\\_______\/\\\_  
+       ______\//\\\_______\/\\\\\\\\\\\\\\\_\///\\\\\\\\\\\/_________\/\\\_______\/\\\_______\/\\\_ 
+        _______\///________\///////////////____\///////////___________\///________\///________\///__)"
+              << "\n\n";
+
+    m_input.init(window_.handle());
+    initVulkan();
+    mainLoop();
+    cleanup();
+}
+
+void Vesta::initVulkan() {
+    VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo{};
+    const VkDebugUtilsMessengerCreateInfoEXT* pDebugInfo = nullptr;
+    if (enableValidationLayers) {
+        debugCreateInfo = m_validationLog.makeCreateInfo();
+        pDebugInfo = &debugCreateInfo;
+    }
+    m_context.init(window_, enableValidationLayers, pDebugInfo);
+    if (enableValidationLayers) m_validationLog.setup(m_context.instance());
+
+    m_swapchain.init(m_context, window_);
+    m_pipeline.init(m_context, m_swapchain.imageFormat(), m_swapchain.depthFormat());
+    m_swapchain.createFramebuffers(m_pipeline.renderPass());
+    m_texture.init(m_context, TEXTURE_PATH);
+    DumpVMAMemoryStats(m_context.allocator(), "vma_stats_init.json");
+
+    std::vector<Vertex> vertices;
+    std::vector<uint32_t> indices;
+    generateTerrain(vertices, indices);
+    m_mesh.init(m_context, m_pipeline, m_texture, vertices, indices);
+    m_imgui.init(m_context, window_, m_pipeline.renderPass());
+    m_renderer.init(m_context, window_, m_swapchain, m_pipeline, m_mesh, m_imgui);
+}
+
+void Vesta::mainLoop() {
+    while (!window_.shouldClose()) {
+        glfwPollEvents();
+        time.update();
+
+        constexpr float DAY_LENGTH_GAME_SECONDS = 250.0f; // DEFAULT: 86400
+        if (!m_manualTime) {
+            m_timeOfDay = std::fmod(static_cast<float>(time.getGameTimeSeconds()), DAY_LENGTH_GAME_SECONDS) /
+                          DAY_LENGTH_GAME_SECONDS;
+        }
+        m_skyColor = getSkyColor(m_timeOfDay);
+
+        m_imgui.newFrame();
+        m_imgui.draw(camera, m_timeOfDay, m_manualTime, m_manualTOD, m_skyColor);
+        m_validationLog.drawImGuiWindow();
+        m_imgui.render();
+        m_input.process(window_.handle(), camera, time.getDeltaTime());
+
+        glm::mat4 view = camera.getViewMatrix();
+        glm::mat4 proj = glm::perspective(glm::radians(45.0f),
+                                          m_swapchain.extent().width / (float)m_swapchain.extent().height, 0.1f, 1000.0f);
+        proj[1][1] *= -1;
+        m_renderer.drawFrame(view, proj, m_skyColor);
+    }
+
+    vkDeviceWaitIdle(m_context.device());
+}
+
+void Vesta::cleanup() {
+    m_renderer.cleanup();
+    m_swapchain.cleanup();
+    m_imgui.cleanup();
+    m_pipeline.cleanup();
+    m_mesh.cleanup();
+    m_texture.cleanup();
+    m_validationLog.cleanup(m_context.instance());
+    m_context.cleanup();
+}
+
+void Vesta::DumpVMAMemoryStats(VmaAllocator allocator, const char* filename) {
+    char* statsString = nullptr;
+    vmaBuildStatsString(allocator, &statsString, VK_TRUE);
+
+    std::ofstream outFile(filename);
+    if (outFile.is_open()) {
+        outFile << statsString;
+        outFile.close();
+        std::cout << "VMA stats saved to: " << filename << std::endl;
+    } else {
+        std::cerr << "ERROR: Cant open save file!" << std::endl;
+    }
+
+    vmaFreeStatsString(allocator, statsString);
+}
