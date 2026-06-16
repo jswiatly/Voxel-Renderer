@@ -67,6 +67,7 @@ add_executable(Vesta
     src/core/InputHandler.cpp
     src/core/Pipeline.cpp
     src/core/Mesh.cpp
+    src/core/ImGuiLayer.cpp
 )
 
 target_include_directories(Vesta PRIVATE src)
