@@ -17,9 +17,9 @@
 #include "core/Window.hpp"
 #include "scene/Camera.hpp"
 
-class Vesta {
+class Engine {
   public:
-    Vesta(int width, int height) : window_(width, height, "Vesta") {}
+    Engine(int width, int height) : window_(width, height, "Vesta") {}
     void run();
     
   private:

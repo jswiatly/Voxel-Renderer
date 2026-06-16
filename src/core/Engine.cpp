@@ -25,7 +25,7 @@ const bool enableValidationLayers = false;
 const bool enableValidationLayers = true;
 #endif
 
-void Vesta::run() {
+void Engine::run() {
     std::cout << R"(
 __/\\\________/\\\__/\\\\\\\\\\\\\\\_____/\\\\\\\\\\\____/\\\\\\\\\\\\\\\_____/\\\\\\\\\____        
  _\/\\\_______\/\\\_\/\\\///////////____/\\\/////////\\\_\///////\\\/////____/\\\\\\\\\\\\\__       
@@ -44,7 +44,7 @@ __/\\\________/\\\__/\\\\\\\\\\\\\\\_____/\\\\\\\\\\\____/\\\\\\\\\\\\\\\_____/\
     cleanup();
 }
 
-void Vesta::initVulkan() {
+void Engine::initVulkan() {
     VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo{};
     const VkDebugUtilsMessengerCreateInfoEXT* pDebugInfo = nullptr;
     if (enableValidationLayers) {
@@ -68,7 +68,7 @@ void Vesta::initVulkan() {
     m_renderer.init(m_context, window_, m_swapchain, m_pipeline, m_mesh, m_imgui);
 }
 
-void Vesta::mainLoop() {
+void Engine::mainLoop() {
     while (!window_.shouldClose()) {
         glfwPollEvents();
         time.update();
@@ -96,7 +96,7 @@ void Vesta::mainLoop() {
     vkDeviceWaitIdle(m_context.device());
 }
 
-void Vesta::cleanup() {
+void Engine::cleanup() {
     m_renderer.cleanup();
     m_swapchain.cleanup();
     m_imgui.cleanup();
@@ -107,7 +107,7 @@ void Vesta::cleanup() {
     m_context.cleanup();
 }
 
-void Vesta::DumpVMAMemoryStats(VmaAllocator allocator, const char* filename) {
+void Engine::DumpVMAMemoryStats(VmaAllocator allocator, const char* filename) {
     char* statsString = nullptr;
     vmaBuildStatsString(allocator, &statsString, VK_TRUE);
 
