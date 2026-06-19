@@ -11,12 +11,13 @@ class Swapchain;
 class Pipeline;
 class Mesh;
 class ImGuiLayer;
+struct UniformBufferObject;
 
 class Renderer {
     public:
         void init(VulkanContext& ctx, Window& window, Swapchain& swapchain, Pipeline& pipeline, Mesh& mesh, ImGuiLayer& imgui);
         void cleanup();
-        void drawFrame(const glm::mat4& view, const glm::mat4& proj, const glm::vec4& clearColor);
+        void drawFrame(const UniformBufferObject& ubo, const glm::vec4& clearColor);
 
     private:
         void createCommandBuffers();

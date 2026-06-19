@@ -168,9 +168,6 @@ void Mesh::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size)
     m_ctx->endSingleTimeCommands(commandBuffer);
 }
 
-void Mesh::updateUniforms(uint32_t frameIndex, const glm::mat4& view, const glm::mat4& proj) {
-    UniformBufferObject ubo{};
-    ubo.view = view;
-    ubo.proj = proj;
+void Mesh::updateUniforms(uint32_t frameIndex, const UniformBufferObject& ubo) {
     memcpy(m_uniformMapped[frameIndex], &ubo, sizeof(ubo));
 }

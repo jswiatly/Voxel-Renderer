@@ -19,3 +19,5 @@ inline const std::array<SkyKeyFrame, 7> SKY_KEYFRAMES = {{
 }};
 
 glm::vec4 getSkyColor(float timeOfDay);
+glm::vec3 getSunDirection(float timeOfDay);
+glm::vec3 getSunColor(float timeOfDay);

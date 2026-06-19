@@ -19,7 +19,7 @@ class Mesh {
               const std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices);
     void cleanup();
 
-    void updateUniforms(uint32_t frameIndex, const glm::mat4& view, const glm::mat4& proj);
+    void updateUniforms(uint32_t frameIndex, const UniformBufferObject& ubo);
 
     VkBuffer vertexBuffer() const { return m_vertexBuffer; }
     VkBuffer indexBuffer() const { return m_indexBuffer; }

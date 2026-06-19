@@ -90,7 +90,12 @@ void Engine::mainLoop() {
         glm::mat4 proj = glm::perspective(glm::radians(45.0f),
                                           m_swapchain.extent().width / (float)m_swapchain.extent().height, 0.1f, 1000.0f);
         proj[1][1] *= -1;
-        m_renderer.drawFrame(view, proj, m_skyColor);
+        UniformBufferObject ubo{};
+        ubo.view = view;
+        ubo.proj = proj;
+        ubo.sunDir = glm::vec4(getSunDirection(m_timeOfDay), 0.0f);
+        ubo.sunColor = glm::vec4(getSunColor(m_timeOfDay), 0.35f);
+        m_renderer.drawFrame(ubo, m_skyColor);
     }
 
     vkDeviceWaitIdle(m_context.device());

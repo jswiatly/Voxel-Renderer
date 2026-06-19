@@ -159,7 +159,7 @@ void Renderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t image
     }
 }
 
-void Renderer::drawFrame(const glm::mat4& view, const glm::mat4& proj, const glm::vec4& clearColor) {
+void Renderer::drawFrame(const UniformBufferObject& ubo, const glm::vec4& clearColor) {
     VkDevice device = m_ctx->device();
     VkQueue graphicsQueue = m_ctx->graphicsQueue();
     VkQueue presentQueue = m_ctx->presentQueue();
@@ -177,7 +177,7 @@ void Renderer::drawFrame(const glm::mat4& view, const glm::mat4& proj, const glm
         throw std::runtime_error("failed to acquire swap chain image!");
     }
 
-    m_mesh->updateUniforms(m_currentFrame, view, proj);
+    m_mesh->updateUniforms(m_currentFrame, ubo);
 
     vkResetFences(device, 1, &m_inFlightFences[m_currentFrame]);
 
