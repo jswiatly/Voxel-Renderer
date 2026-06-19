@@ -1,5 +1,8 @@
 #include "scene/Sky.hpp"
 
+#include <glm/gtc/constants.hpp>
+#include <cmath>
+
 glm::vec4 getSkyColor(float timeOfDay) {
     for (size_t i{}; i + 1 < SKY_KEYFRAMES.size(); ++i) {
         const auto& a = SKY_KEYFRAMES[i];
@@ -10,4 +13,16 @@ glm::vec4 getSkyColor(float timeOfDay) {
         }
     }
     return SKY_KEYFRAMES.back().color;
+}
+
+glm::vec3 getSunDirection(float timeOfDay) {
+    float theta = (timeOfDay - 0.25f) * glm::two_pi<float>();
+    return glm::normalize(glm::vec3(std::cos(theta), std::sin(theta), 0.5f));
+}
+
+glm::vec3 getSunColor(float timeOfDay) {
+    float height = glm::clamp(getSunDirection(timeOfDay).y, 0.0f, 1.0f);
+    glm::vec3 horizon = glm::vec3(1.0f, 0.5f, 0.25f);
+    glm::vec3 zenith = glm::vec3(1.0f, 0.97f, 0.9f);
+    return glm::mix(horizon, zenith, height);
 }

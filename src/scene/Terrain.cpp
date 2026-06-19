@@ -31,13 +31,11 @@ void addFace(std::vector<Vertex>& vertices, std::vector<uint32_t>& indices, glm:
         {0.f, 0.f},
     };
 
-    static constexpr float FACE_SHADE[6] = {0.7f, 0.7f, 0.45f, 0.45f, 0.3f, 1.0f};
-
-    glm::vec3 shaded = color * FACE_SHADE[face];
+    glm::vec3 normal = glm::vec3(FACE_DIR[face]);
 
     uint32_t start = static_cast<uint32_t>(vertices.size());
     for (int i = 0; i < 4; ++i) {
-        vertices.push_back({FACE_VERTS[face][i] + offset, shaded, FACE_UV[i]});
+        vertices.push_back({FACE_VERTS[face][i] + offset, color, FACE_UV[i], normal});
     }
     indices.push_back(start + 0);
     indices.push_back(start + 1);
@@ -47,7 +45,7 @@ void addFace(std::vector<Vertex>& vertices, std::vector<uint32_t>& indices, glm:
     indices.push_back(start + 0);
 }
 
-} // namespace
+}
 
 void generateTerrain(std::vector<Vertex>& vertices, std::vector<uint32_t>& indices, int size) {
     vertices.clear();
