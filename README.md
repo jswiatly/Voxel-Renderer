@@ -19,7 +19,6 @@ A real-time renderer for procedural voxel terrain, written from scratch in **C++
 - Depth buffering; mipmapped textures with anisotropic filtering.
 - Automatic swapchain recreation on resize; prefers `MAILBOX` present mode with a `FIFO` fallback.
 - Directional lighting with per-face normals, driven by the sun's position in the day/night cycle.
-- Procedural terrain generation; dynamic sky colour over an adjustable in-game clock.
 
 **Tooling / debug**
 
@@ -65,5 +64,34 @@ Requirements:
 - A C++20 compiler (MSVC, GCC/MinGW, or Clang)
 
 ```sh
-
+git clone https://github.com/jswiatly/Voxel-Renderer.git
+cd Voxel-Renderer
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build -j
 ```
+
+On Linux, GLFW additionally needs the windowing-system headers:
+
+```sh
+sudo apt install xorg-dev libwayland-dev libxkbcommon-dev wayland-protocols
+```
+
+## Controls
+
+| Input           | Action                |
+| --------------- | --------------------- |
+| `W` `A` `S` `D` | Move camera           |
+| Mouse           | Look around           |
+| `F`             | Toggle cursor capture |
+
+## Roadmap
+
+- Chunked world with multithreaded chunk meshing (generation/meshing off the render thread).
+- Greedy meshing to reduce vertex counts.
+- Per-chunk frustum culling + backface culling.
+- Shadow mapping tied to the sun direction.
+- Block editing (add / remove voxels).
+
+## License
+
+MIT — see [LICENSE](LICENSE).
