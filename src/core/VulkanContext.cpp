@@ -50,9 +50,9 @@ void VulkanContext::createInstance(bool enableValidationLayers,
         }
 
         VkApplicationInfo appInfo{.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
-                                  .pApplicationName = "Vesta",
+                                  .pApplicationName = "VoxelRenderer",
                                   .applicationVersion = VK_MAKE_VERSION(0, 2, 0),
-                                  .pEngineName = "Vesta",
+                                  .pEngineName = "VoxelRenderer",
                                   .engineVersion = VK_MAKE_VERSION(0, 1, 0),
                                   .apiVersion = VK_API_VERSION_1_3};
 

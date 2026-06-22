@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.24)
-project(Vesta LANGUAGES CXX)
+project(VoxelRenderer LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -53,7 +53,7 @@ target_link_libraries(imgui PUBLIC glfw Vulkan::Vulkan)
 # ---------------------------------------------------------------------------
 # Engine executable
 # ---------------------------------------------------------------------------
-add_executable(Vesta
+add_executable(VoxelRenderer
     src/main.cpp
     src/Time.cpp
     src/core/Window.cpp
@@ -72,9 +72,9 @@ add_executable(Vesta
     src/core/Engine.cpp
 )
 
-target_include_directories(Vesta PRIVATE src)
+target_include_directories(VoxelRenderer PRIVATE src)
 
-target_link_libraries(Vesta PRIVATE
+target_link_libraries(VoxelRenderer PRIVATE
     Vulkan::Vulkan
     glfw
     glm::glm
@@ -102,16 +102,16 @@ add_custom_command(
     COMMENT "Compiling shader.frag"
 )
 add_custom_target(Shaders DEPENDS ${SHADER_OUT_DIR}/vert.spv ${SHADER_OUT_DIR}/frag.spv)
-add_dependencies(Vesta Shaders)
+add_dependencies(VoxelRenderer Shaders)
 
-add_custom_command(TARGET Vesta POST_BUILD
+add_custom_command(TARGET VoxelRenderer POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
         ${SHADER_OUT_DIR}
-        $<TARGET_FILE_DIR:Vesta>/shaders
+        $<TARGET_FILE_DIR:VoxelRenderer>/shaders
     COMMAND ${CMAKE_COMMAND} -E copy_directory
         ${CMAKE_CURRENT_SOURCE_DIR}/textures
-        $<TARGET_FILE_DIR:Vesta>/textures
+        $<TARGET_FILE_DIR:VoxelRenderer>/textures
     COMMAND ${CMAKE_COMMAND} -E copy_directory
         ${CMAKE_CURRENT_SOURCE_DIR}/fonts
-        $<TARGET_FILE_DIR:Vesta>/fonts
+        $<TARGET_FILE_DIR:VoxelRenderer>/fonts
 )
