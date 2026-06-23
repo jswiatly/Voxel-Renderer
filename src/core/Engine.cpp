@@ -50,7 +50,7 @@ void Engine::initVulkan() {
 
     std::vector<Vertex> vertices;
     std::vector<uint32_t> indices;
-    generateTerrain(vertices, indices);
+    generateTerrain(vertices, indices, 500);
     m_mesh.init(m_context, m_pipeline, m_texture, vertices, indices);
     m_imgui.init(m_context, window_, m_pipeline.renderPass());
     m_renderer.init(m_context, window_, m_swapchain, m_pipeline, m_mesh, m_imgui);

@@ -51,8 +51,8 @@ void generateTerrain(std::vector<Vertex>& vertices, std::vector<uint32_t>& indic
     vertices.clear();
     indices.clear();
 
-    constexpr int SIZE = 220;
-    constexpr int HALF = SIZE / 2;
+    const int SIZE = size;
+    const int HALF = SIZE / 2;
 
     std::vector<int> heightMap(SIZE * SIZE);
 
