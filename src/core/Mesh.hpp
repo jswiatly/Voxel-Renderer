@@ -24,6 +24,7 @@ class Mesh {
     VkBuffer vertexBuffer() const { return m_vertexBuffer; }
     VkBuffer indexBuffer() const { return m_indexBuffer; }
     uint32_t indexCount() const { return m_indexCount; }
+    uint32_t vertexCount() const { return m_vertexCount; }
     VkDescriptorSet descriptorSet(uint32_t frameIndex) const { return m_descriptorSets[frameIndex]; }
 
   private:
@@ -41,6 +42,7 @@ class Mesh {
     VkBuffer m_indexBuffer = VK_NULL_HANDLE;
     VmaAllocation m_indexAllocation = VK_NULL_HANDLE;
     uint32_t m_indexCount = 0;
+    uint32_t m_vertexCount = 0;
 
     std::vector<VkBuffer> m_uniformBuffers;
     std::vector<VmaAllocation> m_uniformAllocations;

@@ -69,7 +69,8 @@ void Engine::mainLoop() {
         m_skyColor = getSkyColor(m_timeOfDay);
 
         m_imgui.newFrame();
-        m_imgui.draw(camera, m_timeOfDay, m_manualTime, m_manualTOD, m_skyColor);
+        ImGuiLayer::RenderStats stats{ m_mesh.vertexCount(), m_mesh.indexCount(), 1 };
+        m_imgui.draw(camera, m_timeOfDay, m_manualTime, m_manualTOD, m_skyColor, stats);
         m_validationLog.drawImGuiWindow();
         m_imgui.render();
         m_input.process(window_.handle(), camera, time.getDeltaTime());
