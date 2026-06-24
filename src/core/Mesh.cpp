@@ -12,6 +12,7 @@ void Mesh::init(VulkanContext& ctx, Pipeline& pipeline, Texture& texture,
                 const std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices) {
     m_ctx = &ctx;
     m_indexCount = static_cast<uint32_t>(indices.size());
+    m_vertexCount = static_cast<uint32_t>(vertices.size());
     createVertexBuffer(vertices);
     createIndexBuffer(indices);
     createUniformBuffers();

@@ -9,11 +9,16 @@ class Camera;
 
 class ImGuiLayer {
     public:
+        struct RenderStats {
+            uint32_t vertices = 0;
+            uint32_t indices = 0;
+            uint32_t drawCalls = 0;
+        };
         void init(VulkanContext& ctx, Window& window, VkRenderPass renderPass);
         void cleanup();
 
         void newFrame();
-        void draw(const Camera& camera, float& timeOfDay, bool& manualTime, float& manualTOD, const glm::vec4& skyColor);
+        void draw(const Camera& camera, float& timeOfDay, bool& manualTime, float& manualTOD, const glm::vec4& skyColor, const RenderStats& stats);
         void render();
         void renderDrawData(VkCommandBuffer commandBuffer);
 
@@ -22,4 +27,9 @@ class ImGuiLayer {
 
         VulkanContext* m_ctx = nullptr;
         VkDescriptorPool m_pool = VK_NULL_HANDLE;
+
+        static constexpr int FRAME_HISTORY = 90;
+        float m_frameTimes[FRAME_HISTORY] = {};
+        int m_frameOffset = 0;
+
 };
