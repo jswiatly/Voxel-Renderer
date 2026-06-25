@@ -47,16 +47,23 @@ void addFace(std::vector<Vertex>& vertices, std::vector<uint32_t>& indices, glm:
 
 }
 
-void generateTerrain(std::vector<Vertex>& vertices, std::vector<uint32_t>& indices, int size) {
-    vertices.clear();
-    indices.clear();
-
-    const int SIZE = size;
+std::vector<Chunk> generateChunkedTerrain(int worldSize) {
+    const int SIZE = worldSize;
     const int HALF = SIZE / 2;
+    const int chunksPerAxis = (SIZE + CHUNK_SIZE_X - 1) / CHUNK_SIZE_X;
+    std::vector<Chunk> chunks(chunksPerAxis * chunksPerAxis);
+
+    for (int cx = 0; cx < chunksPerAxis; ++cx) {
+        for (int cz = 0; cz < chunksPerAxis; ++cz) {
+            float wx = (cx * CHUNK_SIZE_X) - HALF + CHUNK_SIZE_X * 0.5f;
+            float wz = (cz * CHUNK_SIZE_Z) - HALF + CHUNK_SIZE_Z * 0.5f;
+            chunks[cx * chunksPerAxis + cz].center = glm::vec3(wx, 0.0f, wz);
+        }
+    }
 
     std::vector<int> heightMap(SIZE * SIZE);
 
-    auto noise = [](float x, float z) {
+        auto noise = [](float x, float z) {
         float xi = std::floor(x), zi = std::floor(z);
         float xf = x - xi, zf = z - zi;
         auto h = [](float a, float b) {
@@ -84,7 +91,7 @@ void generateTerrain(std::vector<Vertex>& vertices, std::vector<uint32_t>& indic
         for (int gz = 0; gz < SIZE; ++gz) {
             int x = gx - HALF;
             int z = gz - HALF;
-            int h = static_cast<int>(fbm(x * 0.018f, z * 0.018f) * 60.f) - 8;
+            int h = static_cast<int>(fbm(x * 0.025f, z * 0.025f) * 255.f) - 8;
             heightMap[gx * SIZE + gz] = h;
         }
     }
@@ -103,17 +110,21 @@ void generateTerrain(std::vector<Vertex>& vertices, std::vector<uint32_t>& indic
             int x = gx - HALF;
             int z = gz - HALF;
             int h = heightMap[gx * SIZE + gz];
-            for (int y = -6; y <= h; ++y) {
-                float s = 0.25f + (y + 8) * 0.012f;
-                glm::vec3 col(0.9f);
 
+            int cx = gx / CHUNK_SIZE_X;
+            int cz = gz / CHUNK_SIZE_Z;
+            Chunk& chunk = chunks[cx * chunksPerAxis + cz];
+
+            for (int y = -6; y <= h; ++y) {
+                glm::vec3 col(0.9f);
                 for (int f = 0; f < 6; ++f) {
                     glm::ivec3 d = FACE_DIR[f];
                     if (!isSolid(x + d.x, y + d.y, z + d.z)) {
-                        addFace(vertices, indices, glm::vec3(x, y, z), f, col);
+                        addFace(chunk.vertices, chunk.indices, glm::vec3(x, y, z), f, col);
                     }
                 }
             }
         }
     }
+    return chunks;
 }

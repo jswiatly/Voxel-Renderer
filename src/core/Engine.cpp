@@ -48,12 +48,16 @@ void Engine::initVulkan() {
     m_texture.init(m_context, TEXTURE_PATH);
     DumpVMAMemoryStats(m_context.allocator(), "vma_stats_init.json");
 
-    std::vector<Vertex> vertices;
-    std::vector<uint32_t> indices;
-    generateTerrain(vertices, indices, 500);
-    m_mesh.init(m_context, m_pipeline, m_texture, vertices, indices);
+    std::vector<Chunk> chunks = generateChunkedTerrain(512);
+    m_chunks.reserve(chunks.size());
+    for (Chunk& c : chunks) {
+        if (c.vertices.empty()) continue;
+        m_chunks.emplace_back();
+        m_chunks.back().init(m_context, m_pipeline, m_texture, c.vertices, c.indices);
+        m_chunks.back().setCenter(c.center);
+    }
     m_imgui.init(m_context, window_, m_pipeline.renderPass());
-    m_renderer.init(m_context, window_, m_swapchain, m_pipeline, m_mesh, m_imgui);
+    m_renderer.init(m_context, window_, m_swapchain, m_pipeline, m_chunks, m_imgui);
 }
 
 void Engine::mainLoop() {
@@ -69,8 +73,10 @@ void Engine::mainLoop() {
         m_skyColor = getSkyColor(m_timeOfDay);
 
         m_imgui.newFrame();
-        ImGuiLayer::RenderStats stats{ m_mesh.vertexCount(), m_mesh.indexCount(), 1 };
-        m_imgui.draw(camera, m_timeOfDay, m_manualTime, m_manualTOD, m_skyColor, stats);
+        uint32_t vtot = 0, itot = 0;
+        for (Mesh& m : m_chunks) { vtot += m.vertexCount(); itot += m.indexCount(); }
+        ImGuiLayer::RenderStats stats{ vtot, itot, static_cast<uint32_t>(m_chunks.size()) };
+        m_imgui.draw(camera, m_timeOfDay, m_manualTime, m_manualTOD, m_skyColor, stats, m_renderDistance);
         m_validationLog.drawImGuiWindow();
         m_imgui.render();
         m_input.process(window_.handle(), camera, time.getDeltaTime());
@@ -84,6 +90,7 @@ void Engine::mainLoop() {
         ubo.proj = proj;
         ubo.sunDir = glm::vec4(getSunDirection(m_timeOfDay), 0.0f);
         ubo.sunColor = glm::vec4(getSunColor(m_timeOfDay), 0.35f);
+        m_renderer.setRenderDistance(m_renderDistance);
         m_renderer.drawFrame(ubo, m_skyColor);
     }
 
@@ -95,7 +102,7 @@ void Engine::cleanup() {
     m_swapchain.cleanup();
     m_imgui.cleanup();
     m_pipeline.cleanup();
-    m_mesh.cleanup();
+    for (Mesh& m : m_chunks) m.cleanup();
     m_texture.cleanup();
     m_validationLog.cleanup(m_context.instance());
     m_context.cleanup();

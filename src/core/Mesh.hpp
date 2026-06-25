@@ -21,6 +21,9 @@ class Mesh {
 
     void updateUniforms(uint32_t frameIndex, const UniformBufferObject& ubo);
 
+    void setCenter(const glm::vec3& c) { m_center = c; }
+    glm::vec3 center() const { return m_center; }
+
     VkBuffer vertexBuffer() const { return m_vertexBuffer; }
     VkBuffer indexBuffer() const { return m_indexBuffer; }
     uint32_t indexCount() const { return m_indexCount; }
@@ -43,6 +46,7 @@ class Mesh {
     VmaAllocation m_indexAllocation = VK_NULL_HANDLE;
     uint32_t m_indexCount = 0;
     uint32_t m_vertexCount = 0;
+    glm::vec3 m_center{0.0f};
 
     std::vector<VkBuffer> m_uniformBuffers;
     std::vector<VmaAllocation> m_uniformAllocations;
