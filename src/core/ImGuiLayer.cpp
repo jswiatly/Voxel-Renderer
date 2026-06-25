@@ -174,7 +174,7 @@ void ImGuiLayer::renderDrawData(VkCommandBuffer commandBuffer) {
 }
 
 void ImGuiLayer::draw(const Camera& camera, float& timeOfDay, bool& manualTime, float& manualTOD,
-                      const glm::vec4& skyColor, const RenderStats& stats) {
+                      const glm::vec4& skyColor, const RenderStats& stats, float& renderDistance) {
     ImGui::Begin("Debug");
     int hh = static_cast<int>(timeOfDay * 24.0f);
     int mm = static_cast<int>(timeOfDay * 24.0f * 60.0f) % 60;
@@ -186,6 +186,7 @@ void ImGuiLayer::draw(const Camera& camera, float& timeOfDay, bool& manualTime, 
         ImGui::SliderFloat("Time of day", &manualTOD, 0.0f, 1.0f);
         timeOfDay = manualTOD;
     }
+    ImGui::SliderFloat("Render distance", &renderDistance, 16.0f, MAX_RENDER_DISTANCE, "%.0f");
     ImGui::End();
 
     ImGui::Begin("Performance");

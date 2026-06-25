@@ -10,13 +10,13 @@
 #include <array>
 #include <stdexcept>
 
-void Renderer::init(VulkanContext& ctx, Window& window, Swapchain& swapchain, Pipeline& pipeline, Mesh& mesh,
-                    ImGuiLayer& imgui) {
+void Renderer::init(VulkanContext& ctx, Window& window, Swapchain& swapchain, Pipeline& pipeline,
+                    std::vector<Mesh>& chunks, ImGuiLayer& imgui) {
     m_ctx = &ctx;
     m_window = &window;
     m_swapchain = &swapchain;
     m_pipeline = &pipeline;
-    m_mesh = &mesh;
+    m_chunks = &chunks;
     m_imgui = &imgui;
 
     createCommandBuffers();
@@ -133,22 +133,25 @@ void Renderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t image
     scissor.offset = {0, 0};
     scissor.extent = m_swapchain->extent();
     vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
-
-    VkBuffer vertexBuffers[] = {m_mesh->vertexBuffer()};
-    VkDeviceSize offsets[] = {0};
-    vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
-
-    vkCmdBindIndexBuffer(commandBuffer, m_mesh->indexBuffer(), 0, VK_INDEX_TYPE_UINT32);
-
-    VkDescriptorSet descriptorSet = m_mesh->descriptorSet(m_currentFrame);
-    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline->pipelineLayout(), 0, 1,
-                            &descriptorSet, 0, nullptr);
-
     glm::mat4 model = glm::mat4(1.0f);
     vkCmdPushConstants(commandBuffer, m_pipeline->pipelineLayout(), VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4),
                        &model);
 
-    vkCmdDrawIndexed(commandBuffer, m_mesh->indexCount(), 1, 0, 0, 0);
+    for (Mesh& mesh : *m_chunks) {
+        float dist = glm::distance(glm::vec2(m_camPos.x, m_camPos.z), glm::vec2(mesh.center().x, mesh.center().z));
+        if (dist > m_renderDistance)
+            continue;
+        VkBuffer vertexBuffers[] = {mesh.vertexBuffer()};
+        VkDeviceSize offsets[] = {0};
+        vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
+        vkCmdBindIndexBuffer(commandBuffer, mesh.indexBuffer(), 0, VK_INDEX_TYPE_UINT32);
+
+        VkDescriptorSet descriptorSet = mesh.descriptorSet(m_currentFrame);
+        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline->pipelineLayout(), 0, 1,
+                                &descriptorSet, 0, nullptr);
+
+        vkCmdDrawIndexed(commandBuffer, mesh.indexCount(), 1, 0, 0, 0);
+    }
 
     m_imgui->renderDrawData(commandBuffer);
 
@@ -166,6 +169,8 @@ void Renderer::drawFrame(const UniformBufferObject& ubo, const glm::vec4& clearC
 
     vkWaitForFences(device, 1, &m_inFlightFences[m_currentFrame], VK_TRUE, UINT64_MAX);
 
+    m_camPos = glm::vec3(glm::inverse(ubo.view)[3]);
+
     uint32_t imageIndex;
     VkResult result = vkAcquireNextImageKHR(device, m_swapchain->handle(), UINT64_MAX,
                                             m_imageAvailableSemaphores[m_currentFrame], VK_NULL_HANDLE, &imageIndex);
@@ -177,7 +182,8 @@ void Renderer::drawFrame(const UniformBufferObject& ubo, const glm::vec4& clearC
         throw std::runtime_error("failed to acquire swap chain image!");
     }
 
-    m_mesh->updateUniforms(m_currentFrame, ubo);
+    for (Mesh& m : *m_chunks)
+        m.updateUniforms(m_currentFrame, ubo);
 
     vkResetFences(device, 1, &m_inFlightFences[m_currentFrame]);
 

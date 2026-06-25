@@ -37,12 +37,13 @@ class Engine {
     Texture m_texture;
     InputHandler m_input;
     Pipeline m_pipeline;
-    Mesh m_mesh;
+    std::vector<Mesh> m_chunks;
     ImGuiLayer m_imgui;
     Renderer m_renderer;
 
     float m_timeOfDay = 0.0f;
     bool m_manualTime = false;
     float m_manualTOD = 0.5f;
+    float m_renderDistance = 256.0f;
     glm::vec4 m_skyColor = {0, 0, 0, 1};
 };
