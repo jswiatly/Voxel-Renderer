@@ -22,8 +22,34 @@ constexpr glm::vec3 FACE_VERTS[6][4] = {
 
 constexpr glm::ivec3 FACE_DIR[6] = {{0, 0, 1}, {0, 0, -1}, {-1, 0, 0}, {1, 0, 0}, {0, -1, 0}, {0, 1, 0}};
 
-void addFace(std::vector<Vertex>& vertices, std::vector<uint32_t>& indices, glm::vec3 offset, int face,
-             glm::vec3 color) {
+constexpr float AO_CURVE[4] = {0.45f, 0.65f, 0.82f, 1.0f};
+
+int aoLevel(bool s1, bool s2, bool corner) {
+    if (s1 && s2)
+        return 0;
+    return 3 - (int(s1) + int(s2) + int(corner));
+}
+
+void aoSamples(int face, int i, glm::ivec3& s1, glm::ivec3& s2, glm::ivec3& corner) {
+    glm::ivec3 n = FACE_DIR[face];
+    corner = glm::ivec3(glm::round(FACE_VERTS[face][i] * 2.0f));
+    s1 = n;
+    s2 = n;
+    bool firstTangent = true;
+    for (int a = 0; a < 3; ++a) {
+        if (n[a] != 0)
+            continue;
+        if (firstTangent) {
+            s1[a] = corner[a];
+            firstTangent = false;
+        } else {
+            s2[a] = corner[a];
+        }
+    }
+}
+
+void addFace(std::vector<Vertex>& vertices, std::vector<uint32_t>& indices, glm::vec3 offset, int face, glm::vec3 color,
+             glm::vec4 ao) {
     static constexpr glm::vec2 FACE_UV[4] = {
         {0.f, 1.f},
         {1.f, 1.f},
@@ -35,7 +61,7 @@ void addFace(std::vector<Vertex>& vertices, std::vector<uint32_t>& indices, glm:
 
     uint32_t start = static_cast<uint32_t>(vertices.size());
     for (int i = 0; i < 4; ++i) {
-        vertices.push_back({FACE_VERTS[face][i] + offset, color, FACE_UV[i], normal});
+        vertices.push_back({FACE_VERTS[face][i] + offset, color * ao[i], FACE_UV[i], normal});
     }
     indices.push_back(start + 0);
     indices.push_back(start + 1);
@@ -45,7 +71,7 @@ void addFace(std::vector<Vertex>& vertices, std::vector<uint32_t>& indices, glm:
     indices.push_back(start + 0);
 }
 
-}
+} // namespace
 
 std::vector<Chunk> generateChunkedTerrain(int worldSize) {
     const int SIZE = worldSize;
@@ -63,7 +89,7 @@ std::vector<Chunk> generateChunkedTerrain(int worldSize) {
 
     std::vector<int> heightMap(SIZE * SIZE);
 
-        auto noise = [](float x, float z) {
+    auto noise = [](float x, float z) {
         float xi = std::floor(x), zi = std::floor(z);
         float xf = x - xi, zf = z - zi;
         auto h = [](float a, float b) {
@@ -91,7 +117,7 @@ std::vector<Chunk> generateChunkedTerrain(int worldSize) {
         for (int gz = 0; gz < SIZE; ++gz) {
             int x = gx - HALF;
             int z = gz - HALF;
-            int h = static_cast<int>(fbm(x * 0.025f, z * 0.025f) * 255.f) - 8;
+            int h = static_cast<int>(fbm(x * 0.025f, z * 0.025f) * 80.f) - 8;
             heightMap[gx * SIZE + gz] = h;
         }
     }
@@ -103,6 +129,19 @@ std::vector<Chunk> generateChunkedTerrain(int worldSize) {
         if (y < -6)
             return true;
         return y <= heightMap[gx * SIZE + gz];
+    };
+
+    auto faceAO = [&](int x, int y, int z, int face) {
+        glm::vec4 ao;
+        for (int i = 0; i < 4; ++i) {
+            glm::ivec3 s1, s2, c;
+            aoSamples(face, i, s1, s2, c);
+            bool b1 = isSolid(x + s1.x, y + s1.y, z + s1.z);
+            bool b2 = isSolid(x + s2.x, y + s2.y, z + s2.z);
+            bool bc = isSolid(x + c.x, y + c.y, z + c.z);
+            ao[i] = AO_CURVE[aoLevel(b1, b2, bc)];
+        }
+        return ao;
     };
 
     for (int gx = 0; gx < SIZE; ++gx) {
@@ -120,7 +159,8 @@ std::vector<Chunk> generateChunkedTerrain(int worldSize) {
                 for (int f = 0; f < 6; ++f) {
                     glm::ivec3 d = FACE_DIR[f];
                     if (!isSolid(x + d.x, y + d.y, z + d.z)) {
-                        addFace(chunk.vertices, chunk.indices, glm::vec3(x, y, z), f, col);
+                        glm::vec4 ao = faceAO(x, y, z, f);
+                        addFace(chunk.vertices, chunk.indices, glm::vec3(x, y, z), f, col, ao);
                     }
                 }
             }
