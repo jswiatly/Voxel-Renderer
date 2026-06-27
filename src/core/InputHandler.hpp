@@ -14,4 +14,5 @@ class InputHandler {
     bool m_firstMouse = true;
     bool m_cursorMode = false;
     bool m_fKeyWasPressed = false;
+    bool m_f5WasPressed = false;
 };
