@@ -18,6 +18,12 @@ void InputHandler::process(GLFWwindow* window, Camera& camera, float dt) {
     }
     m_fKeyWasPressed = fKeyPressed;
 
+    bool f5Pressed = glfwGetKey(window, GLFW_KEY_F5) == GLFW_PRESS;
+    if (f5Pressed && !m_f5WasPressed) {
+    camera.thirdPerson = !camera.thirdPerson;
+    }
+    m_f5WasPressed = f5Pressed;
+
     if (!m_cursorMode) {
         if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
             camera.processKeyboard(0, dt);

@@ -8,6 +8,9 @@ class Camera {
     glm::vec3 front;
     glm::vec3 up;
 
+    bool thirdPerson = false;
+    float thirdPersonDistance = 5.0f;
+
     float yaw;
     float pitch;
     float movementSpeed;
@@ -19,12 +22,13 @@ class Camera {
         up = glm::vec3(0.0f, 1.0f, 0.0f);
         yaw = -90.0f;
         pitch = 0.0f;
-        movementSpeed = 2.5f;
+        movementSpeed = 15.f;
         mouseSensitivity = 0.1f;
     }
     glm::mat4 getViewMatrix() const {
-        return glm::lookAt(position, position + front, up);
-    }
+    glm::vec3 eye = thirdPerson ? position - front * thirdPersonDistance : position;
+    return glm::lookAt(eye, eye + front, up);
+}
 
     void processKeyboard(int direction, float deltaTime) {
         float velocity = movementSpeed * deltaTime;
