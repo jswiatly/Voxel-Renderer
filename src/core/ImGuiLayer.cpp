@@ -105,9 +105,11 @@ void SetupStyle() {
 
 void ImGuiLayer::createDescriptorPool() {
     VkDevice device = m_ctx->device();
-    std::array<VkDescriptorPoolSize, 1> poolSizes{};
-    poolSizes[0].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    std::array<VkDescriptorPoolSize, 2> poolSizes{};
+    poolSizes[0].type = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
     poolSizes[0].descriptorCount = 1000;
+    poolSizes[1].type = VK_DESCRIPTOR_TYPE_SAMPLER;
+    poolSizes[1].descriptorCount = 1000;
 
     VkDescriptorPoolCreateInfo poolInfo{};
     poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
@@ -174,8 +176,8 @@ void ImGuiLayer::renderDrawData(VkCommandBuffer commandBuffer) {
     ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), commandBuffer);
 }
 
-void ImGuiLayer::draw(const Camera& camera, float& timeOfDay, bool& manualTime, float& manualTOD,
-                      const glm::vec4& skyColor, const RenderStats& stats, float& renderDistance) {
+void ImGuiLayer::draw(Camera& camera, float& timeOfDay, bool& manualTime, float& manualTOD, const glm::vec4& skyColor,
+                      const RenderStats& stats, float& renderDistance, bool& fogEnabled) {
     ImGui::Begin("Debug");
     int hh = static_cast<int>(timeOfDay * 24.0f);
     int mm = static_cast<int>(timeOfDay * 24.0f * 60.0f) % 60;
@@ -188,6 +190,8 @@ void ImGuiLayer::draw(const Camera& camera, float& timeOfDay, bool& manualTime, 
         timeOfDay = manualTOD;
     }
     ImGui::SliderFloat("Render distance", &renderDistance, 16.0f, MAX_RENDER_DISTANCE, "%.0f");
+    ImGui::SliderFloat("Camera speed", &camera.movementSpeed, 1.0f, 50.0f, "%.1f");
+    ImGui::Checkbox("Fog", &fogEnabled);
     ImGui::End();
 
     ImGui::Begin("Performance");

@@ -81,7 +81,7 @@ void Engine::mainLoop() {
             itot += m.indexCount();
         }
         ImGuiLayer::RenderStats stats{vtot, itot, static_cast<uint32_t>(m_chunks.size())};
-        m_imgui.draw(camera, m_timeOfDay, m_manualTime, m_manualTOD, m_skyColor, stats, m_renderDistance);
+        m_imgui.draw(camera, m_timeOfDay, m_manualTime, m_manualTOD, m_skyColor, stats, m_renderDistance, m_fogEnabled);
         m_validationLog.drawImGuiWindow();
         m_imgui.render();
         m_input.process(window_.handle(), camera, time.getDeltaTime());
@@ -93,7 +93,7 @@ void Engine::mainLoop() {
         UniformBufferObject ubo{};
         ubo.view = view;
         ubo.proj = proj;
-        ubo.sunDir = glm::vec4(getSunDirection(m_timeOfDay), 0.0f);
+        ubo.sunDir = glm::vec4(getSunDirection(m_timeOfDay), m_fogEnabled ? 1.0f : 0.0f);
         ubo.sunColor = glm::vec4(getSunColor(m_timeOfDay), 0.35f);
         m_renderer.setRenderDistance(m_renderDistance);
         m_renderer.drawFrame(ubo, m_skyColor);
