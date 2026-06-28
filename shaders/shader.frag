@@ -31,5 +31,8 @@ void main() {
     float fogFactor = clamp((fogEnd - fragViewDist) / (fogEnd - fogStart), 0.0, 1.0);
     vec3  fogColor  = vec3(0.6, 0.7, 0.85);
 
+    if (ubo.sunDir.w < 0.5)
+        fogFactor = 1.0f;
+
     outColor = vec4(mix(fogColor, color, fogFactor), 1.0);
 }
