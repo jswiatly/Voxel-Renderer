@@ -133,9 +133,6 @@ void Renderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t image
     scissor.offset = {0, 0};
     scissor.extent = m_swapchain->extent();
     vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
-    glm::mat4 model = glm::mat4(1.0f);
-    vkCmdPushConstants(commandBuffer, m_pipeline->pipelineLayout(), VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4),
-                       &model);
 
     for (Mesh& mesh : *m_chunks) {
         float dist = glm::distance(glm::vec2(m_camPos.x, m_camPos.z), glm::vec2(mesh.center().x, mesh.center().z));

@@ -5,7 +5,7 @@
 
 int main() {
     try {
-        Engine engine(1600, 900);
+        Engine engine(WIDTH, HEIGHT);
         engine.run();
     } catch (const std::exception& e) {
         std::cerr << e.what() << std::endl;
