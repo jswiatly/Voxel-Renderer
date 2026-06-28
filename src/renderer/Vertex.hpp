@@ -2,11 +2,9 @@
 
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
-#define GLM_ENABLE_EXPERIMENTAL
 
 #include <array>
 #include <glm/glm.hpp>
-#include <glm/gtx/hash.hpp>
 #include <vulkan/vulkan.h>
 
 struct Vertex {
@@ -15,9 +13,6 @@ struct Vertex {
     glm::vec2 texCoord;
     glm::vec3 normal;
 
-    bool operator==(const Vertex& other) const {
-        return pos == other.pos && color == other.color && texCoord == other.texCoord;
-    }
     static VkVertexInputBindingDescription getBindingDescription();
     static std::array<VkVertexInputAttributeDescription, 4> getAttributeDescriptions();
 };
@@ -28,9 +23,3 @@ struct UniformBufferObject {
     alignas(16) glm::vec4 sunDir;
     alignas(16) glm::vec4 sunColor;
 };
-
-namespace std {
-template <> struct hash<Vertex> {
-    size_t operator()(Vertex const& vertex) const;
-};
-} // namespace std
