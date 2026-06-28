@@ -15,20 +15,34 @@ class Texture;
 
 class Mesh {
   public:
-    void init(VulkanContext& ctx, Pipeline& pipeline, Texture& texture,
-              const std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices);
+    void init(VulkanContext& ctx, Pipeline& pipeline, Texture& texture, const std::vector<Vertex>& vertices,
+              const std::vector<uint32_t>& indices);
     void cleanup();
 
     void updateUniforms(uint32_t frameIndex, const UniformBufferObject& ubo);
 
-    void setCenter(const glm::vec3& c) { m_center = c; }
-    glm::vec3 center() const { return m_center; }
+    void setCenter(const glm::vec3& c) {
+        m_center = c;
+    }
+    glm::vec3 center() const {
+        return m_center;
+    }
 
-    VkBuffer vertexBuffer() const { return m_vertexBuffer; }
-    VkBuffer indexBuffer() const { return m_indexBuffer; }
-    uint32_t indexCount() const { return m_indexCount; }
-    uint32_t vertexCount() const { return m_vertexCount; }
-    VkDescriptorSet descriptorSet(uint32_t frameIndex) const { return m_descriptorSets[frameIndex]; }
+    VkBuffer vertexBuffer() const {
+        return m_vertexBuffer;
+    }
+    VkBuffer indexBuffer() const {
+        return m_indexBuffer;
+    }
+    uint32_t indexCount() const {
+        return m_indexCount;
+    }
+    uint32_t vertexCount() const {
+        return m_vertexCount;
+    }
+    VkDescriptorSet descriptorSet(uint32_t frameIndex) const {
+        return m_descriptorSets[frameIndex];
+    }
 
   private:
     void createVertexBuffer(const std::vector<Vertex>& vertices);

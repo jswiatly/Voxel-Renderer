@@ -20,7 +20,7 @@ void InputHandler::process(GLFWwindow* window, Camera& camera, float dt) {
 
     bool f5Pressed = glfwGetKey(window, GLFW_KEY_F5) == GLFW_PRESS;
     if (f5Pressed && !m_f5WasPressed) {
-    camera.thirdPerson = !camera.thirdPerson;
+        camera.thirdPerson = !camera.thirdPerson;
     }
     m_f5WasPressed = f5Pressed;
 

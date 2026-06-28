@@ -18,14 +18,14 @@
 
 namespace {
 
-    std::string groupThousands(uint32_t value) {
+std::string groupThousands(uint32_t value) {
     std::string s = std::to_string(value);
     for (int i = static_cast<int>(s.size()) - 3; i > 0; i -= 3)
         s.insert(i, " ");
     return s;
-    }
+}
 
-    void SetupStyle() {
+void SetupStyle() {
     ImGuiStyle& style = ImGui::GetStyle();
     ImVec4* colors = style.Colors;
 
@@ -128,7 +128,7 @@ void ImGuiLayer::init(VulkanContext& ctx, Window& window, VkRenderPass renderPas
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO();
-    (void)io;
+    io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
     SetupStyle();
 
     ImGui_ImplGlfw_InitForVulkan(window.handle(), true);
@@ -163,6 +163,7 @@ void ImGuiLayer::newFrame() {
     ImGui_ImplVulkan_NewFrame();
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
+    ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode);
 }
 
 void ImGuiLayer::render() {
@@ -196,7 +197,8 @@ void ImGuiLayer::draw(const Camera& camera, float& timeOfDay, bool& manualTime, 
     ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate,
                 ImGui::GetIO().Framerate);
     ImGui::PushStyleColor(ImGuiCol_PlotHistogram, ImVec4(0.90f, 0.20f, 0.20f, 1.0f)); // R,G,B,A
-    ImGui::PlotHistogram("##frametime", m_frameTimes, FRAME_HISTORY, m_frameOffset, nullptr, 0.0f, FLT_MAX, ImVec2(0,50));
+    ImGui::PlotHistogram("##frametime", m_frameTimes, FRAME_HISTORY, m_frameOffset, nullptr, 0.0f, FLT_MAX,
+                         ImVec2(0, 50));
     ImGui::PopStyleColor();
     ImGui::Text("Vertices:  %s", groupThousands(stats.vertices).c_str());
     ImGui::Text("Indices:   %s", groupThousands(stats.indices).c_str());

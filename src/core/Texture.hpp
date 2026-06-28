@@ -13,8 +13,12 @@ class Texture {
     void init(VulkanContext& ctx, const std::string& path);
     void cleanup();
 
-    VkImageView imageView() const { return m_imageView; }
-    VkSampler sampler() const { return m_sampler; }
+    VkImageView imageView() const {
+        return m_imageView;
+    }
+    VkSampler sampler() const {
+        return m_sampler;
+    }
 
   private:
     void loadFromFile(const std::string& path);

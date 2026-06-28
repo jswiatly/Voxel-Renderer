@@ -40,7 +40,8 @@ void Engine::initVulkan() {
         pDebugInfo = &debugCreateInfo;
     }
     m_context.init(window_, enableValidationLayers, pDebugInfo);
-    if (enableValidationLayers) m_validationLog.setup(m_context.instance());
+    if (enableValidationLayers)
+        m_validationLog.setup(m_context.instance());
 
     m_swapchain.init(m_context, window_);
     m_pipeline.init(m_context, m_swapchain.imageFormat(), m_swapchain.depthFormat());
@@ -51,7 +52,8 @@ void Engine::initVulkan() {
     std::vector<Chunk> chunks = generateChunkedTerrain(256);
     m_chunks.reserve(chunks.size());
     for (Chunk& c : chunks) {
-        if (c.vertices.empty()) continue;
+        if (c.vertices.empty())
+            continue;
         m_chunks.emplace_back();
         m_chunks.back().init(m_context, m_pipeline, m_texture, c.vertices, c.indices);
         m_chunks.back().setCenter(c.center);
@@ -74,16 +76,19 @@ void Engine::mainLoop() {
 
         m_imgui.newFrame();
         uint32_t vtot = 0, itot = 0;
-        for (Mesh& m : m_chunks) { vtot += m.vertexCount(); itot += m.indexCount(); }
-        ImGuiLayer::RenderStats stats{ vtot, itot, static_cast<uint32_t>(m_chunks.size()) };
+        for (Mesh& m : m_chunks) {
+            vtot += m.vertexCount();
+            itot += m.indexCount();
+        }
+        ImGuiLayer::RenderStats stats{vtot, itot, static_cast<uint32_t>(m_chunks.size())};
         m_imgui.draw(camera, m_timeOfDay, m_manualTime, m_manualTOD, m_skyColor, stats, m_renderDistance);
         m_validationLog.drawImGuiWindow();
         m_imgui.render();
         m_input.process(window_.handle(), camera, time.getDeltaTime());
 
         glm::mat4 view = camera.getViewMatrix();
-        glm::mat4 proj = glm::perspective(glm::radians(45.0f),
-                                          m_swapchain.extent().width / (float)m_swapchain.extent().height, 0.1f, 1000.0f);
+        glm::mat4 proj = glm::perspective(
+            glm::radians(45.0f), m_swapchain.extent().width / (float)m_swapchain.extent().height, 0.1f, 1000.0f);
         proj[1][1] *= -1;
         UniformBufferObject ubo{};
         ubo.view = view;
@@ -102,7 +107,8 @@ void Engine::cleanup() {
     m_swapchain.cleanup();
     m_imgui.cleanup();
     m_pipeline.cleanup();
-    for (Mesh& m : m_chunks) m.cleanup();
+    for (Mesh& m : m_chunks)
+        m.cleanup();
     m_texture.cleanup();
     m_validationLog.cleanup(m_context.instance());
     m_context.cleanup();

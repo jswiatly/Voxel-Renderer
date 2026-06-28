@@ -10,7 +10,7 @@
 #include <limits>
 #include <stdexcept>
 
-void Swapchain::init(VulkanContext& ctx, Window& window){
+void Swapchain::init(VulkanContext& ctx, Window& window) {
     m_ctx = &ctx;
     createSwapChain(window);
     createImageViews();
@@ -57,8 +57,7 @@ void Swapchain::createSwapChain(Window& window) {
     VkExtent2D extent = chooseExtent(window, swapChainSupport.capabilities);
 
     uint32_t imageCount = swapChainSupport.capabilities.minImageCount + 1;
-    if (swapChainSupport.capabilities.maxImageCount > 0 &&
-        imageCount > swapChainSupport.capabilities.maxImageCount) {
+    if (swapChainSupport.capabilities.maxImageCount > 0 && imageCount > swapChainSupport.capabilities.maxImageCount) {
         imageCount = swapChainSupport.capabilities.maxImageCount;
     }
 

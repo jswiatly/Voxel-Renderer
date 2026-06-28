@@ -26,9 +26,9 @@ class Camera {
         mouseSensitivity = 0.1f;
     }
     glm::mat4 getViewMatrix() const {
-    glm::vec3 eye = thirdPerson ? position - front * thirdPersonDistance : position;
-    return glm::lookAt(eye, eye + front, up);
-}
+        glm::vec3 eye = thirdPerson ? position - front * thirdPersonDistance : position;
+        return glm::lookAt(eye, eye + front, up);
+    }
 
     void processKeyboard(int direction, float deltaTime) {
         float velocity = movementSpeed * deltaTime;

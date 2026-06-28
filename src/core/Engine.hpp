@@ -21,7 +21,7 @@ class Engine {
   public:
     Engine(int width, int height) : window_(width, height, "Voxel Renderer") {}
     void run();
-    
+
   private:
     void initVulkan();
     void mainLoop();
