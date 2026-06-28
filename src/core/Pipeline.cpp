@@ -18,6 +18,7 @@ void Pipeline::cleanup() {
     vkDestroyPipeline(device, m_graphicsPipeline, nullptr);
     vkDestroyPipelineLayout(device, m_pipelineLayout, nullptr);
     vkDestroyDescriptorSetLayout(device, m_descriptorSetLayout, nullptr);
+    vkDestroyRenderPass(device, m_renderPass, nullptr);
 }
 
 void Pipeline::createRenderPass(VkFormat colorFormat, VkFormat depthFormat) {
