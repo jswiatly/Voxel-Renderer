@@ -43,6 +43,7 @@ class Engine {
 
     float m_timeOfDay = 0.0f;
     bool m_manualTime = false;
+    bool m_fogEnabled = true;
     float m_manualTOD = 0.5f;
     float m_renderDistance = 256.0f;
     glm::vec4 m_skyColor = {0, 0, 0, 1};

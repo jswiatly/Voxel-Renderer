@@ -18,8 +18,8 @@ class ImGuiLayer {
     void cleanup();
 
     void newFrame();
-    void draw(const Camera& camera, float& timeOfDay, bool& manualTime, float& manualTOD, const glm::vec4& skyColor,
-              const RenderStats& stats, float& renderDistance);
+    void draw(Camera& camera, float& timeOfDay, bool& manualTime, float& manualTOD, const glm::vec4& skyColor,
+              const RenderStats& stats, float& renderDistance, bool& fogEnabled);
     void render();
     void renderDrawData(VkCommandBuffer commandBuffer);
 
