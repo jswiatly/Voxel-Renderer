@@ -7,31 +7,29 @@
 #include <vector>
 
 class ValidationLogger {
-    public:
+  public:
+    VkDebugUtilsMessengerCreateInfoEXT makeCreateInfo();
 
-        VkDebugUtilsMessengerCreateInfoEXT makeCreateInfo();
-        
-        void setup(VkInstance instance);
+    void setup(VkInstance instance);
 
-        void cleanup(VkInstance instance);
- 
-        void drawImGuiWindow();
+    void cleanup(VkInstance instance);
 
-    private:
+    void drawImGuiWindow();
 
-        struct Entry {
-            VkDebugUtilsMessageSeverityFlagBitsEXT severity;
-            std::string message;
-        };
+  private:
+    struct Entry {
+        VkDebugUtilsMessageSeverityFlagBitsEXT severity;
+        std::string message;
+    };
 
-        static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
+    static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
                                                         VkDebugUtilsMessageTypeFlagsEXT messageType,
                                                         const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
                                                         void* pUserData);
 
-        void append(VkDebugUtilsMessageSeverityFlagBitsEXT severity, const char* message);
+    void append(VkDebugUtilsMessageSeverityFlagBitsEXT severity, const char* message);
 
-        VkDebugUtilsMessengerEXT m_messenger = VK_NULL_HANDLE;
-        std::vector<Entry> m_logs;
-        std::mutex m_mutex;
+    VkDebugUtilsMessengerEXT m_messenger = VK_NULL_HANDLE;
+    std::vector<Entry> m_logs;
+    std::mutex m_mutex;
 };

@@ -12,10 +12,18 @@ class Pipeline {
     void init(VulkanContext& ctx, VkFormat colorFormat, VkFormat depthFormat);
     void cleanup();
 
-    VkRenderPass renderPass() const { return m_renderPass; }
-    VkDescriptorSetLayout descriptorSetLayout() const { return m_descriptorSetLayout; }
-    VkPipelineLayout pipelineLayout() const { return m_pipelineLayout; }
-    VkPipeline graphicsPipeline() const { return m_graphicsPipeline; }
+    VkRenderPass renderPass() const {
+        return m_renderPass;
+    }
+    VkDescriptorSetLayout descriptorSetLayout() const {
+        return m_descriptorSetLayout;
+    }
+    VkPipelineLayout pipelineLayout() const {
+        return m_pipelineLayout;
+    }
+    VkPipeline graphicsPipeline() const {
+        return m_graphicsPipeline;
+    }
 
   private:
     void createRenderPass(VkFormat colorFormat, VkFormat depthFormat);

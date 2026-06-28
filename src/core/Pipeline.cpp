@@ -8,14 +8,14 @@
 #include <fstream>
 #include <stdexcept>
 
-void Pipeline::init(VulkanContext& ctx, VkFormat colorFormat, VkFormat depthFormat){
+void Pipeline::init(VulkanContext& ctx, VkFormat colorFormat, VkFormat depthFormat) {
     m_ctx = &ctx;
     createRenderPass(colorFormat, depthFormat);
     createDescriptorSetLayout();
     createGraphicsPipeline();
 }
 
-void Pipeline::cleanup(){
+void Pipeline::cleanup() {
     VkDevice device = m_ctx->device();
     vkDestroyPipeline(device, m_graphicsPipeline, nullptr);
     vkDestroyPipelineLayout(device, m_pipelineLayout, nullptr);
@@ -79,7 +79,8 @@ void Pipeline::createDescriptorSetLayout() {
     VkDescriptorSetLayoutBinding uboLayoutBinding{.binding = 0,
                                                   .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
                                                   .descriptorCount = 1,
-                                                  .stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+                                                  .stageFlags =
+                                                      VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
                                                   .pImmutableSamplers = nullptr};
 
     VkDescriptorSetLayoutBinding samplerLayoutBinding{.binding = 1,
@@ -138,7 +139,8 @@ void Pipeline::createGraphicsPipeline() {
     VkPipelineViewportStateCreateInfo viewportState{
         .sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO, .viewportCount = 1, .scissorCount = 1};
 
-    VkPipelineRasterizationStateCreateInfo rasterizer{.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
+    VkPipelineRasterizationStateCreateInfo rasterizer{.sType =
+                                                          VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
                                                       .depthClampEnable = VK_FALSE,
                                                       .rasterizerDiscardEnable = VK_FALSE,
                                                       .polygonMode = VK_POLYGON_MODE_FILL,
@@ -153,18 +155,18 @@ void Pipeline::createGraphicsPipeline() {
         .sampleShadingEnable = VK_FALSE,
     };
 
-    VkPipelineDepthStencilStateCreateInfo depthStencil{
-        .sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
-        .depthTestEnable = VK_TRUE,
-        .depthWriteEnable = VK_TRUE,
-        .depthCompareOp = VK_COMPARE_OP_LESS,
-        .depthBoundsTestEnable = VK_FALSE,
-        .stencilTestEnable = VK_FALSE};
+    VkPipelineDepthStencilStateCreateInfo depthStencil{.sType =
+                                                           VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
+                                                       .depthTestEnable = VK_TRUE,
+                                                       .depthWriteEnable = VK_TRUE,
+                                                       .depthCompareOp = VK_COMPARE_OP_LESS,
+                                                       .depthBoundsTestEnable = VK_FALSE,
+                                                       .stencilTestEnable = VK_FALSE};
 
-    VkPipelineColorBlendAttachmentState colorBlendAttachment{
-        .blendEnable = VK_FALSE,
-        .colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT |
-                          VK_COLOR_COMPONENT_A_BIT};
+    VkPipelineColorBlendAttachmentState colorBlendAttachment{.blendEnable = VK_FALSE,
+                                                             .colorWriteMask =
+                                                                 VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
+                                                                 VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT};
 
     VkPipelineColorBlendStateCreateInfo colorBlending{.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
                                                       .logicOpEnable = VK_FALSE,
