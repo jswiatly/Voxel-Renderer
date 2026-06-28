@@ -113,11 +113,25 @@ std::vector<Chunk> generateChunkedTerrain(int worldSize) {
         return t / n;
     };
 
+    constexpr int SEA = 0;
+
     for (int gx = 0; gx < SIZE; ++gx) {
         for (int gz = 0; gz < SIZE; ++gz) {
             int x = gx - HALF;
             int z = gz - HALF;
-            int h = static_cast<int>(fbm(x * 0.025f, z * 0.025f) * 80.f) - 8;
+            float fx = float(x), fz = float(z);
+            float wx = (fbm((fx + 1000.f) * 0.005f, (fz + 1000.f) * 0.005f) - 0.5f) * 80.f;
+            float wz = (fbm((fx - 1000.f) * 0.005f, (fz - 1000.f) * 0.005f) - 0.5f) * 80.f;
+            fx += wx;
+            fz += wz;
+
+            float plains = fbm(fx * 0.01, fz * 0.01f);
+            float sel = noise(fx * 0.008f, fz * 0.008f);
+            sel = glm::clamp((sel - 0.5f) / 0.5f, 0.0f, 1.0f);
+            sel = sel * sel;
+            float mountains = fbm(fx * 0.03f, fz * 0.03f);
+
+            int h = SEA + static_cast<int>(plains * 6.0f) + static_cast<int>(sel * mountains * 110.0f);
             heightMap[gx * SIZE + gz] = h;
         }
     }

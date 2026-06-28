@@ -49,7 +49,7 @@ void Engine::initVulkan() {
     m_texture.init(m_context, TEXTURE_PATH);
     DumpVMAMemoryStats(m_context.allocator(), "vma_stats_init.json");
 
-    std::vector<Chunk> chunks = generateChunkedTerrain(256);
+    std::vector<Chunk> chunks = generateChunkedTerrain(1024);
     m_chunks.reserve(chunks.size());
     for (Chunk& c : chunks) {
         if (c.vertices.empty())
