@@ -48,8 +48,13 @@ void Engine::initVulkan() {
     m_swapchain.createFramebuffers(m_pipeline.renderPass());
     m_texture.init(m_context, TEXTURE_PATH);
     DumpVMAMemoryStats(m_context.allocator(), "vma_stats_init.json");
+    loadTerrain(m_worldSize, m_seed);
+    m_imgui.init(m_context, window_, m_pipeline.renderPass());
+    m_renderer.init(m_context, window_, m_swapchain, m_pipeline, m_chunks, m_imgui);
+}
 
-    std::vector<Chunk> chunks = generateChunkedTerrain(1024);
+void Engine::loadTerrain(int size, int seed) {
+    std::vector<Chunk> chunks = generateChunkedTerrain(size, seed);
     m_chunks.reserve(chunks.size());
     for (Chunk& c : chunks) {
         if (c.vertices.empty())
@@ -58,8 +63,14 @@ void Engine::initVulkan() {
         m_chunks.back().init(m_context, m_pipeline, m_texture, c.vertices, c.indices);
         m_chunks.back().setCenter(c.center);
     }
-    m_imgui.init(m_context, window_, m_pipeline.renderPass());
-    m_renderer.init(m_context, window_, m_swapchain, m_pipeline, m_chunks, m_imgui);
+}
+
+void Engine::regenerateTerrain() {
+    vkDeviceWaitIdle(m_context.device());
+    for (Mesh& m : m_chunks)
+        m.cleanup();
+    m_chunks.clear();
+    loadTerrain(m_worldSize, m_seed);
 }
 
 void Engine::mainLoop() {
@@ -81,10 +92,15 @@ void Engine::mainLoop() {
             itot += m.indexCount();
         }
         ImGuiLayer::RenderStats stats{vtot, itot, static_cast<uint32_t>(m_chunks.size())};
-        m_imgui.draw(camera, m_timeOfDay, m_manualTime, m_manualTOD, m_skyColor, stats, m_renderDistance, m_fogEnabled);
+        m_imgui.draw(camera, m_timeOfDay, m_manualTime, m_manualTOD, m_skyColor, stats, m_renderDistance, m_fogEnabled,
+                     m_seed, m_worldSize, m_regenerate);
         m_validationLog.drawImGuiWindow();
         m_imgui.render();
         m_input.process(window_.handle(), camera, time.getDeltaTime());
+        if (m_regenerate) {
+            regenerateTerrain();
+            m_regenerate = false;
+        }
 
         glm::mat4 view = camera.getViewMatrix();
         glm::mat4 proj = glm::perspective(
