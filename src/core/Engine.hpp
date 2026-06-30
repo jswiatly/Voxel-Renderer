@@ -26,6 +26,8 @@ class Engine {
     void initVulkan();
     void mainLoop();
     void cleanup();
+    void loadTerrain(int size, int seed);
+    void regenerateTerrain();
     void DumpVMAMemoryStats(VmaAllocator allocator, const char* filename);
 
     Window window_;
@@ -46,5 +48,8 @@ class Engine {
     bool m_fogEnabled = true;
     float m_manualTOD = 0.5f;
     float m_renderDistance = 256.0f;
+    int m_worldSize = 1024;
+    int m_seed = 1337;
+    bool m_regenerate = false;
     glm::vec4 m_skyColor = {0, 0, 0, 1};
 };

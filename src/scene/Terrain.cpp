@@ -73,7 +73,7 @@ void addFace(std::vector<Vertex>& vertices, std::vector<uint32_t>& indices, glm:
 
 } // namespace
 
-std::vector<Chunk> generateChunkedTerrain(int worldSize) {
+std::vector<Chunk> generateChunkedTerrain(int worldSize, int seed) {
     const int SIZE = worldSize;
     const int HALF = SIZE / 2;
     const int chunksPerAxis = (SIZE + CHUNK_SIZE_X - 1) / CHUNK_SIZE_X;
@@ -89,11 +89,13 @@ std::vector<Chunk> generateChunkedTerrain(int worldSize) {
 
     std::vector<int> heightMap(SIZE * SIZE);
 
-    auto noise = [](float x, float z) {
+    float seedPhase = float(seed) * 78.233f;
+
+    auto noise = [seedPhase](float x, float z) {
         float xi = std::floor(x), zi = std::floor(z);
         float xf = x - xi, zf = z - zi;
-        auto h = [](float a, float b) {
-            float v = std::sin(a * 127.1f + b * 311.7f) * 43758.5453f;
+        auto h = [seedPhase](float a, float b) {
+            float v = std::sin(a * 127.1f + b * 311.7f + seedPhase) * 43758.5453f;
             return v - std::floor(v);
         };
         float u = xf * xf * (3.f - 2.f * xf);

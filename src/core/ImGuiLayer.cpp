@@ -177,7 +177,8 @@ void ImGuiLayer::renderDrawData(VkCommandBuffer commandBuffer) {
 }
 
 void ImGuiLayer::draw(Camera& camera, float& timeOfDay, bool& manualTime, float& manualTOD, const glm::vec4& skyColor,
-                      const RenderStats& stats, float& renderDistance, bool& fogEnabled) {
+                      const RenderStats& stats, float& renderDistance, bool& fogEnabled, int& seed, int& worldSize,
+                      bool& regenerate) {
     ImGui::Begin("Debug");
     int hh = static_cast<int>(timeOfDay * 24.0f);
     int mm = static_cast<int>(timeOfDay * 24.0f * 60.0f) % 60;
@@ -192,6 +193,10 @@ void ImGuiLayer::draw(Camera& camera, float& timeOfDay, bool& manualTime, float&
     ImGui::SliderFloat("Render distance", &renderDistance, 16.0f, MAX_RENDER_DISTANCE, "%.0f");
     ImGui::SliderFloat("Camera speed", &camera.movementSpeed, 1.0f, 50.0f, "%.1f");
     ImGui::Checkbox("Fog", &fogEnabled);
+    ImGui::InputInt("Seed", &seed);
+    ImGui::InputInt("World size", &worldSize);
+    if (ImGui::Button("Regenerate"))
+        regenerate = true;
     ImGui::End();
 
     ImGui::Begin("Performance");
