@@ -11,12 +11,13 @@ class Swapchain;
 class Pipeline;
 class Mesh;
 class ImGuiLayer;
+class Skybox;
 struct UniformBufferObject;
 
 class Renderer {
   public:
     void init(VulkanContext& ctx, Window& window, Swapchain& swapchain, Pipeline& pipeline, std::vector<Mesh>& chunks,
-              ImGuiLayer& imgui);
+              ImGuiLayer& imgui, Skybox& skybox);
     void cleanup();
     void drawFrame(const UniformBufferObject& ubo, const glm::vec4& clearColor);
     void setRenderDistance(float d) {
@@ -36,6 +37,7 @@ class Renderer {
     Pipeline* m_pipeline = nullptr;
     std::vector<Mesh>* m_chunks = nullptr;
     ImGuiLayer* m_imgui = nullptr;
+    Skybox* m_skybox = nullptr;
 
     std::vector<VkCommandBuffer> m_commandBuffers;
     std::vector<VkSemaphore> m_imageAvailableSemaphores;

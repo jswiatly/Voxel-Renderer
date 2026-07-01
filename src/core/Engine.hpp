@@ -16,6 +16,7 @@
 #include "core/VulkanContext.hpp"
 #include "core/Window.hpp"
 #include "scene/Camera.hpp"
+#include "scene/Skybox.hpp"
 
 class Engine {
   public:
@@ -42,6 +43,7 @@ class Engine {
     std::vector<Mesh> m_chunks;
     ImGuiLayer m_imgui;
     Renderer m_renderer;
+    Skybox m_skybox;
 
     float m_timeOfDay = 0.0f;
     bool m_manualTime = false;

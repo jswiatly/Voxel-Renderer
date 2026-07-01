@@ -6,18 +6,20 @@
 #include "core/Mesh.hpp"
 #include "core/ImGuiLayer.hpp"
 #include "core/Constants.hpp"
+#include "scene/Skybox.hpp"
 
 #include <array>
 #include <stdexcept>
 
 void Renderer::init(VulkanContext& ctx, Window& window, Swapchain& swapchain, Pipeline& pipeline,
-                    std::vector<Mesh>& chunks, ImGuiLayer& imgui) {
+                    std::vector<Mesh>& chunks, ImGuiLayer& imgui, Skybox& skybox) {
     m_ctx = &ctx;
     m_window = &window;
     m_swapchain = &swapchain;
     m_pipeline = &pipeline;
     m_chunks = &chunks;
     m_imgui = &imgui;
+    m_skybox = &skybox;
 
     createCommandBuffers();
     createSyncObjects();
@@ -150,6 +152,7 @@ void Renderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t image
         vkCmdDrawIndexed(commandBuffer, mesh.indexCount(), 1, 0, 0, 0);
     }
 
+    m_skybox->record(commandBuffer, m_currentFrame);
     m_imgui->renderDrawData(commandBuffer);
 
     vkCmdEndRenderPass(commandBuffer);
@@ -181,6 +184,7 @@ void Renderer::drawFrame(const UniformBufferObject& ubo, const glm::vec4& clearC
 
     for (Mesh& m : *m_chunks)
         m.updateUniforms(m_currentFrame, ubo);
+    m_skybox->updateUniforms(m_currentFrame, ubo);
 
     vkResetFences(device, 1, &m_inFlightFences[m_currentFrame]);
 

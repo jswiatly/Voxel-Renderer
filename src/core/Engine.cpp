@@ -46,11 +46,12 @@ void Engine::initVulkan() {
     m_swapchain.init(m_context, window_);
     m_pipeline.init(m_context, m_swapchain.imageFormat(), m_swapchain.depthFormat());
     m_swapchain.createFramebuffers(m_pipeline.renderPass());
+    m_skybox.init(m_context, m_pipeline.renderPass());
     m_texture.init(m_context, TEXTURE_PATH);
     DumpVMAMemoryStats(m_context.allocator(), "vma_stats_init.json");
     loadTerrain(m_worldSize, m_seed);
     m_imgui.init(m_context, window_, m_pipeline.renderPass());
-    m_renderer.init(m_context, window_, m_swapchain, m_pipeline, m_chunks, m_imgui);
+    m_renderer.init(m_context, window_, m_swapchain, m_pipeline, m_chunks, m_imgui, m_skybox);
 }
 
 void Engine::loadTerrain(int size, int seed) {
@@ -122,6 +123,7 @@ void Engine::cleanup() {
     m_renderer.cleanup();
     m_swapchain.cleanup();
     m_imgui.cleanup();
+    m_skybox.cleanup();
     m_pipeline.cleanup();
     for (Mesh& m : m_chunks)
         m.cleanup();
