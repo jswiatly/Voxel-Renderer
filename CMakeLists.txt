@@ -34,7 +34,6 @@ FetchContent_Declare(VulkanMemoryAllocator
 
 FetchContent_MakeAvailable(glfw glm imgui VulkanMemoryAllocator)
 
-# Dear ImGui ships no CMakeLists, so build it as a small static library.
 add_library(imgui STATIC
     ${imgui_SOURCE_DIR}/imgui.cpp
     ${imgui_SOURCE_DIR}/imgui_demo.cpp
@@ -70,6 +69,7 @@ add_executable(VoxelRenderer
     src/core/ImGuiLayer.cpp
     src/core/Renderer.cpp
     src/core/Engine.cpp
+    src/scene/Skybox.cpp
 )
 
 target_include_directories(VoxelRenderer PRIVATE src)
@@ -101,7 +101,26 @@ add_custom_command(
     DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/shaders/shader.frag
     COMMENT "Compiling shader.frag"
 )
-add_custom_target(Shaders DEPENDS ${SHADER_OUT_DIR}/vert.spv ${SHADER_OUT_DIR}/frag.spv)
+
+add_custom_command(
+    OUTPUT ${SHADER_OUT_DIR}/sky_vert.spv
+    COMMAND ${CMAKE_COMMAND} -E make_directory ${SHADER_OUT_DIR}
+    COMMAND Vulkan::glslc ${CMAKE_CURRENT_SOURCE_DIR}/shaders/sky.vert -o ${SHADER_OUT_DIR}/sky_vert.spv
+    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/shaders/sky.vert
+    COMMENT "Compiling sky.vert"
+)
+
+add_custom_command(
+    OUTPUT ${SHADER_OUT_DIR}/sky_frag.spv
+    COMMAND ${CMAKE_COMMAND} -E make_directory ${SHADER_OUT_DIR}
+    COMMAND Vulkan::glslc ${CMAKE_CURRENT_SOURCE_DIR}/shaders/sky.frag -o ${SHADER_OUT_DIR}/sky_frag.spv
+    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/shaders/sky.frag
+    COMMENT "Compiling sky.frag"
+)
+
+add_custom_target(Shaders DEPENDS
+    ${SHADER_OUT_DIR}/vert.spv ${SHADER_OUT_DIR}/frag.spv
+    ${SHADER_OUT_DIR}/sky_vert.spv ${SHADER_OUT_DIR}/sky_frag.spv)
 add_dependencies(VoxelRenderer Shaders)
 
 add_custom_command(TARGET VoxelRenderer POST_BUILD
