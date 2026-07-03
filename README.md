@@ -16,31 +16,46 @@ A real-time renderer for procedural voxel terrain, written from scratch in **C++
 
 - Hand-written Vulkan 1.3 renderer — instance, device, swapchain, graphics pipeline, built from the ground up.
 - GPU memory managed through VMA (Vulkan Memory Allocator).
-- Depth buffering; mipmapped textures with anisotropic filtering.
+- Depth buffering; mipmapped textures with anisotropic filtering; backface culling.
 - Automatic swapchain recreation on resize; prefers `MAILBOX` present mode with a `FIFO` fallback.
 - Directional lighting with per-face normals, driven by the sun's position in the day/night cycle.
+- Skybox rendered in a dedicated pipeline, tinted by the time of day.
+- Per-vertex ambient occlusion baked at meshing time.
+- Distance fog (toggleable at runtime).
+
+**Procedural terrain**
+
+- Seeded value-noise FBM heightmap with domain warping.
+- Two blended biome layers — rolling plains and mountains — mixed by a low-frequency selector noise.
+- Terrain split into chunks, meshed with hidden-face removal, and culled by distance to the camera.
+- Live regeneration: change the seed or world size in the UI and rebuild the world without restarting.
 
 **Tooling / debug**
 
-- Free-fly camera (WASD + mouse-look).
-- Dear ImGui panels: frame-time/FPS overlay, 3D orientation gizmo, time-of-day slider, and an in-engine viewer for Vulkan validation-layer messages.
+- Free-fly camera (WASD + mouse-look) with a third-person toggle.
+- Dear ImGui panels:
+  - **Debug** — time-of-day override, render distance, camera speed, fog toggle, seed / world size + regenerate.
+  - **Performance** — frame-time graph, FPS, vertex / index / draw-call counters.
+  - **3D orientation gizmo** and an in-engine viewer for Vulkan validation-layer messages.
 - VMA allocation statistics dumped to JSON.
 
 ## Architecture
 
 Single-responsibility modules behind a thin `Engine` facade (`main.cpp` is ~15 lines):
 
-| Module             | Responsibility                                                        |
-| ------------------ | --------------------------------------------------------------------- |
-| `VulkanContext`    | instance, device, queues, allocator, command pool, shared GPU helpers |
-| `Swapchain`        | swapchain, image views, depth buffer, framebuffers, resize recreation |
-| `Pipeline`         | render pass, descriptor layout, graphics pipeline, shaders            |
-| `Texture`          | image upload, mipmap generation, sampler                              |
-| `Mesh`             | vertex / index / uniform buffers, descriptor sets                     |
-| `Renderer`         | command buffers, synchronization, draw loop                           |
-| `ImGuiLayer`       | Dear ImGui setup and debug UI                                         |
-| `InputHandler`     | keyboard / mouse → camera                                             |
-| `ValidationLogger` | captures Vulkan validation messages for the in-engine viewer          |
+| Module             | Responsibility                                                         |
+| ------------------ | ---------------------------------------------------------------------- |
+| `VulkanContext`    | instance, device, queues, allocator, command pool, shared GPU helpers  |
+| `Swapchain`        | swapchain, image views, depth buffer, framebuffers, resize recreation  |
+| `Pipeline`         | render pass, descriptor layout, graphics pipeline, shaders             |
+| `Texture`          | image upload, mipmap generation, sampler                               |
+| `Mesh`             | vertex / index / uniform buffers, descriptor sets                      |
+| `Renderer`         | command buffers, synchronization, draw loop, distance culling          |
+| `Terrain`          | noise, heightmap, chunked mesh generation with baked AO                |
+| `Skybox`           | sky dome pipeline and day/night tinting                                |
+| `ImGuiLayer`       | Dear ImGui setup and debug UI                                          |
+| `InputHandler`     | keyboard / mouse → camera                                              |
+| `ValidationLogger` | captures Vulkan validation messages for the in-engine viewer           |
 
 ## Tech stack
 
@@ -78,17 +93,19 @@ sudo apt install xorg-dev libwayland-dev libxkbcommon-dev wayland-protocols
 
 ## Controls
 
-| Input           | Action                |
-| --------------- | --------------------- |
-| `W` `A` `S` `D` | Move camera           |
-| Mouse           | Look around           |
-| `F`             | Toggle cursor capture |
+| Input           | Action                     |
+| --------------- | -------------------------- |
+| `W` `A` `S` `D` | Move camera                |
+| Mouse           | Look around                |
+| `F`             | Toggle cursor capture      |
+| `F5`            | Toggle third-person camera |
 
 ## Roadmap
 
-- Chunked world with multithreaded chunk meshing (generation/meshing off the render thread).
+- Renderer internals: single global UBO (replacing per-chunk uniforms), non-copyable RAII `Mesh`, deferred deletion queue.
+- Multithreaded chunk meshing (generation/meshing off the render thread) with chunk streaming around the camera.
 - Greedy meshing to reduce vertex counts.
-- Per-chunk frustum culling + backface culling.
+- Per-chunk frustum culling.
 - Shadow mapping tied to the sun direction.
 - Block editing (add / remove voxels).
 
