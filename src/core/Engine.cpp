@@ -51,7 +51,7 @@ void Engine::initVulkan() {
     DumpVMAMemoryStats(m_context.allocator(), "vma_stats_init.json");
     loadTerrain(m_worldSize, m_seed);
     m_imgui.init(m_context, window_, m_pipeline.renderPass());
-    m_renderer.init(m_context, window_, m_swapchain, m_pipeline, m_chunks, m_imgui, m_skybox);
+    m_renderer.init(m_context, window_, m_swapchain, m_pipeline, m_chunks, m_imgui, m_skybox, m_texture);
 }
 
 void Engine::loadTerrain(int size, int seed) {
@@ -61,7 +61,7 @@ void Engine::loadTerrain(int size, int seed) {
         if (c.vertices.empty())
             continue;
         m_chunks.emplace_back();
-        m_chunks.back().init(m_context, m_pipeline, m_texture, c.vertices, c.indices);
+        m_chunks.back().init(m_context, c.vertices, c.indices);
         m_chunks.back().setCenter(c.center);
     }
 }
