@@ -61,7 +61,7 @@ void addFace(std::vector<Vertex>& vertices, std::vector<uint32_t>& indices, glm:
 
     uint32_t start = static_cast<uint32_t>(vertices.size());
     for (int i = 0; i < 4; ++i) {
-        vertices.push_back({FACE_VERTS[face][i] + offset, color * ao[i], FACE_UV[i], normal});
+        vertices.push_back({FACE_VERTS[face][i] + offset, color * ao[i], glm::vec3(FACE_UV[i], 0.0f), normal});
     }
     indices.push_back(start + 0);
     indices.push_back(start + 1);
