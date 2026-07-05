@@ -47,7 +47,7 @@ void Engine::initVulkan() {
     m_pipeline.init(m_context, m_swapchain.imageFormat(), m_swapchain.depthFormat());
     m_swapchain.createFramebuffers(m_pipeline.renderPass());
     m_skybox.init(m_context, m_pipeline.renderPass());
-    m_texture.init(m_context, TEXTURE_PATH);
+    m_texture.init(m_context, TEXTURE_PATHS);
     DumpVMAMemoryStats(m_context.allocator(), "vma_stats_init.json");
     loadTerrain(m_worldSize, m_seed);
     m_imgui.init(m_context, window_, m_pipeline.renderPass());

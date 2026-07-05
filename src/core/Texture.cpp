@@ -8,9 +8,9 @@
 #include <cstring>
 #include <stdexcept>
 
-void Texture::init(VulkanContext& ctx, const std::string& path) {
+void Texture::init(VulkanContext& ctx, const std::vector<std::string>& paths) {
     m_ctx = &ctx;
-    loadFromFile(path);
+    loadFromFiles(paths);
     createImageView();
     createSampler();
 }
@@ -22,30 +22,41 @@ void Texture::cleanup() {
     vmaDestroyImage(m_ctx->allocator(), m_image, m_allocation);
 }
 
-void Texture::loadFromFile(const std::string& path) {
+void Texture::loadFromFiles(const std::vector<std::string>& paths) {
     VmaAllocator allocator = m_ctx->allocator();
-    int texWidth, texHeight, texChannels;
-    stbi_uc* pixels = stbi_load(path.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
-    VkDeviceSize imageSize = texWidth * texHeight * 4;
+    m_layerCount = static_cast<uint32_t>(paths.size());
 
-    if (!pixels)
-        throw std::runtime_error("failed to load texture image!");
+    int texWidth = 0, texHeight = 0, texChannels;
+    std::vector<stbi_uc*> layers;
+    for (const std::string& p : paths) {
+        int w, h;
+        stbi_uc* pixels = stbi_load(p.c_str(), &w, &h, &texChannels, STBI_rgb_alpha);
+        if (!pixels)
+            throw std::runtime_error("failed to load texture image: " + p);
+        if (!layers.empty() && (w != texWidth || h != texHeight))
+            throw std::runtime_error("texture array layers must match in size: " + p);
+        texWidth = w;
+        texHeight = h;
+        layers.push_back(pixels);
+    }
 
+    VkDeviceSize layerSize = VkDeviceSize(texWidth) * texHeight * 4;
     m_mipLevels = static_cast<uint32_t>(std::floor(std::log2(std::max(texWidth, texHeight)))) + 1;
 
     VkBuffer stagingBuffer;
-    VmaAllocation stagingBufferAllocation;
-    m_ctx->createBuffer(imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_AUTO, stagingBuffer,
-                        stagingBufferAllocation, VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT);
+    VmaAllocation stagingAllocation;
+    m_ctx->createBuffer(layerSize * m_layerCount, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_AUTO,
+                        stagingBuffer, stagingAllocation, VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT);
 
     void* data;
-    vmaMapMemory(allocator, stagingBufferAllocation, &data);
-    memcpy(data, pixels, static_cast<size_t>(imageSize));
-    vmaUnmapMemory(allocator, stagingBufferAllocation);
+    vmaMapMemory(allocator, stagingAllocation, &data);
+    for (size_t i = 0; i < layers.size(); ++i) {
+        memcpy(static_cast<char*>(data) + i * layerSize, layers[i], layerSize);
+        stbi_image_free(layers[i]);
+    }
+    vmaUnmapMemory(allocator, stagingAllocation);
 
-    stbi_image_free(pixels);
-
-    m_ctx->createImage(texWidth, texHeight, m_mipLevels, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL,
+    m_ctx->createImage(texWidth, texHeight, m_mipLevels, m_layerCount, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL,
                        VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
                        VMA_MEMORY_USAGE_AUTO, m_image, m_allocation);
 
@@ -54,7 +65,7 @@ void Texture::loadFromFile(const std::string& path) {
     copyBufferToImage(stagingBuffer, m_image, static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight));
     generateMipmaps(VK_FORMAT_R8G8B8A8_SRGB, texWidth, texHeight);
 
-    vmaDestroyBuffer(allocator, stagingBuffer, stagingBufferAllocation);
+    vmaDestroyBuffer(allocator, stagingBuffer, stagingAllocation);
 }
 
 void Texture::generateMipmaps(VkFormat imageFormat, int32_t texWidth, int32_t texHeight) {
@@ -75,7 +86,7 @@ void Texture::generateMipmaps(VkFormat imageFormat, int32_t texWidth, int32_t te
                                      .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
                                      .levelCount = 1,
                                      .baseArrayLayer = 0,
-                                     .layerCount = 1,
+                                     .layerCount = m_layerCount,
                                  }};
 
     int32_t mipWidth = texWidth;
@@ -97,13 +108,13 @@ void Texture::generateMipmaps(VkFormat imageFormat, int32_t texWidth, int32_t te
         blit.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
         blit.srcSubresource.mipLevel = i - 1;
         blit.srcSubresource.baseArrayLayer = 0;
-        blit.srcSubresource.layerCount = 1;
+        blit.srcSubresource.layerCount = m_layerCount;
         blit.dstOffsets[0] = {0, 0, 0};
         blit.dstOffsets[1] = {mipWidth > 1 ? mipWidth / 2 : 1, mipHeight > 1 ? mipHeight / 2 : 1, 1};
         blit.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
         blit.dstSubresource.mipLevel = i;
         blit.dstSubresource.baseArrayLayer = 0;
-        blit.dstSubresource.layerCount = 1;
+        blit.dstSubresource.layerCount = m_layerCount;
 
         vkCmdBlitImage(commandBuffer, m_image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, m_image,
                        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &blit, VK_FILTER_LINEAR);
@@ -135,7 +146,8 @@ void Texture::generateMipmaps(VkFormat imageFormat, int32_t texWidth, int32_t te
 }
 
 void Texture::createImageView() {
-    m_imageView = m_ctx->createImageView(m_image, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT, m_mipLevels);
+    m_imageView = m_ctx->createImageView(m_image, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT, m_mipLevels,
+                                         VK_IMAGE_VIEW_TYPE_2D_ARRAY, m_layerCount);
 }
 
 void Texture::createSampler() {
@@ -180,7 +192,7 @@ void Texture::transitionImageLayout(VkImage image, VkFormat format, VkImageLayou
                              .baseMipLevel = 0,
                              .levelCount = mipLevels,
                              .baseArrayLayer = 0,
-                             .layerCount = 1},
+                             .layerCount = m_layerCount},
     };
 
     VkPipelineStageFlags sourceStage;
@@ -209,18 +221,22 @@ void Texture::transitionImageLayout(VkImage image, VkFormat format, VkImageLayou
 void Texture::copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height) {
     VkCommandBuffer commandBuffer = m_ctx->beginSingleTimeCommands();
 
-    VkBufferImageCopy region{};
-    region.bufferOffset = 0;
-    region.bufferRowLength = 0;
-    region.bufferImageHeight = 0;
-    region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    region.imageSubresource.mipLevel = 0;
-    region.imageSubresource.baseArrayLayer = 0;
-    region.imageSubresource.layerCount = 1;
-    region.imageOffset = {0, 0, 0};
-    region.imageExtent = {width, height, 1};
+    std::vector<VkBufferImageCopy> regions(m_layerCount);
+    VkDeviceSize layerSize = VkDeviceSize(width) * height * 4;
+    for (uint32_t i = 0; i < m_layerCount; ++i) {
+        regions[i] = {};
+        regions[i].bufferOffset = i * layerSize;
+        regions[i].imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        regions[i].imageSubresource.mipLevel = 0;
+        regions[i].imageSubresource.baseArrayLayer = i;
+        regions[i].imageSubresource.layerCount = 1;
+        regions[i].imageExtent = {width, height, 1};
+    }
+    vkCmdCopyBufferToImage(commandBuffer, buffer, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                           static_cast<uint32_t>(regions.size()), regions.data());
 
-    vkCmdCopyBufferToImage(commandBuffer, buffer, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+    vkCmdCopyBufferToImage(commandBuffer, buffer, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                           static_cast<uint32_t>(regions.size()), regions.data());
 
     m_ctx->endSingleTimeCommands(commandBuffer);
 }

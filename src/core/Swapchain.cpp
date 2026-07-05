@@ -108,7 +108,7 @@ void Swapchain::createImageViews() {
 
 void Swapchain::createDepthResources() {
     m_depthFormat = findDepthFormat();
-    m_ctx->createImage(m_extent.width, m_extent.height, 1, m_depthFormat, VK_IMAGE_TILING_OPTIMAL,
+    m_ctx->createImage(m_extent.width, m_extent.height, 1, 1, m_depthFormat, VK_IMAGE_TILING_OPTIMAL,
                        VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VMA_MEMORY_USAGE_AUTO, m_depthImage,
                        m_depthAllocation);
     m_depthImageView = m_ctx->createImageView(m_depthImage, m_depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT, 1);

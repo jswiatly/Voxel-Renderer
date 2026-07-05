@@ -5,12 +5,13 @@
 
 #include <cstdint>
 #include <string>
+#include <vector>
 
 class VulkanContext;
 
 class Texture {
   public:
-    void init(VulkanContext& ctx, const std::string& path);
+    void init(VulkanContext& ctx, const std::vector<std::string>& paths);
     void cleanup();
 
     VkImageView imageView() const {
@@ -21,7 +22,7 @@ class Texture {
     }
 
   private:
-    void loadFromFile(const std::string& path);
+    void loadFromFiles(const std::vector<std::string>& paths);
     void generateMipmaps(VkFormat imageFormat, int32_t texWidth, int32_t texHeight);
     void createImageView();
     void createSampler();
@@ -37,4 +38,5 @@ class Texture {
     VkImageView m_imageView = VK_NULL_HANDLE;
     VkSampler m_sampler = VK_NULL_HANDLE;
     uint32_t m_mipLevels = 1;
+    uint32_t m_layerCount = 1;
 };

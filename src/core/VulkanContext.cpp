@@ -209,15 +209,15 @@ void VulkanContext::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, Vm
     }
 }
 
-void VulkanContext::createImage(uint32_t width, uint32_t height, uint32_t mipLevels, VkFormat format,
-                                VkImageTiling tiling, VkImageUsageFlags usage, VmaMemoryUsage vmaUsage, VkImage& image,
-                                VmaAllocation& allocation) {
+void VulkanContext::createImage(uint32_t width, uint32_t height, uint32_t mipLevels, uint32_t arrayLayers,
+                                VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VmaMemoryUsage vmaUsage,
+                                VkImage& image, VmaAllocation& allocation) {
     VkImageCreateInfo imageInfo{.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
                                 .imageType = VK_IMAGE_TYPE_2D,
                                 .format = format,
                                 .extent = {width, height, 1},
                                 .mipLevels = mipLevels,
-                                .arrayLayers = 1,
+                                .arrayLayers = arrayLayers,
                                 .samples = VK_SAMPLE_COUNT_1_BIT,
                                 .tiling = tiling,
                                 .usage = usage,
@@ -360,16 +360,16 @@ bool VulkanContext::checkValidationLayerSupport() {
 }
 
 VkImageView VulkanContext::createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags,
-                                           uint32_t mipLevels) {
+                                           uint32_t mipLevels, VkImageViewType viewType, uint32_t layerCount) {
     VkImageViewCreateInfo viewInfo{.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
                                    .image = image,
-                                   .viewType = VK_IMAGE_VIEW_TYPE_2D,
+                                   .viewType = viewType,
                                    .format = format,
                                    .subresourceRange = {.aspectMask = aspectFlags,
                                                         .baseMipLevel = 0,
                                                         .levelCount = mipLevels,
                                                         .baseArrayLayer = 0,
-                                                        .layerCount = 1}};
+                                                        .layerCount = layerCount}};
 
     VkImageView imageView;
     if (vkCreateImageView(m_device, &viewInfo, nullptr, &imageView) != VK_SUCCESS) {
