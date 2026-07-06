@@ -10,6 +10,7 @@
 #include "core/Texture.hpp"
 
 #include <array>
+#include <cstring>
 #include <stdexcept>
 
 void Renderer::init(VulkanContext& ctx, Window& window, Swapchain& swapchain, Pipeline& pipeline,
