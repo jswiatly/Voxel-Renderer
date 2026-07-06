@@ -49,7 +49,7 @@ void aoSamples(int face, int i, glm::ivec3& s1, glm::ivec3& s2, glm::ivec3& corn
 }
 
 void addFace(std::vector<Vertex>& vertices, std::vector<uint32_t>& indices, glm::vec3 offset, int face, glm::vec3 color,
-             glm::vec4 ao) {
+             glm::vec4 ao, float layer) {
     static constexpr glm::vec2 FACE_UV[4] = {
         {0.f, 1.f},
         {1.f, 1.f},
@@ -61,7 +61,7 @@ void addFace(std::vector<Vertex>& vertices, std::vector<uint32_t>& indices, glm:
 
     uint32_t start = static_cast<uint32_t>(vertices.size());
     for (int i = 0; i < 4; ++i) {
-        vertices.push_back({FACE_VERTS[face][i] + offset, color * ao[i], glm::vec3(FACE_UV[i], 0.0f), normal});
+        vertices.push_back({FACE_VERTS[face][i] + offset, color * ao[i], glm::vec3(FACE_UV[i], layer), normal});
     }
     indices.push_back(start + 0);
     indices.push_back(start + 1);
@@ -171,12 +171,13 @@ std::vector<Chunk> generateChunkedTerrain(int worldSize, int seed) {
             Chunk& chunk = chunks[cx * chunksPerAxis + cz];
 
             for (int y = -6; y <= h; ++y) {
-                glm::vec3 col(0.9f);
+                float layer = (y == h && h < 45) ? 0.0f : 1.0f;
+                glm::vec3 col(1.0f);
                 for (int f = 0; f < 6; ++f) {
                     glm::ivec3 d = FACE_DIR[f];
                     if (!isSolid(x + d.x, y + d.y, z + d.z)) {
                         glm::vec4 ao = faceAO(x, y, z, f);
-                        addFace(chunk.vertices, chunk.indices, glm::vec3(x, y, z), f, col, ao);
+                        addFace(chunk.vertices, chunk.indices, glm::vec3(x, y, z), f, col, ao, layer);
                     }
                 }
             }
