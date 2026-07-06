@@ -21,8 +21,13 @@ glm::vec3 getSunDirection(float timeOfDay) {
 }
 
 glm::vec3 getSunColor(float timeOfDay) {
-    float height = glm::clamp(getSunDirection(timeOfDay).y, 0.0f, 1.0f);
+    float sunY = getSunDirection(timeOfDay).y;
+    float height = glm::clamp(sunY, 0.0f, 1.0f);
     glm::vec3 horizon = glm::vec3(1.0f, 0.5f, 0.25f);
     glm::vec3 zenith = glm::vec3(1.0f, 0.97f, 0.9f);
-    return glm::mix(horizon, zenith, height);
+    glm::vec3 day = glm::mix(horizon, zenith, height);
+
+    float daylight = glm::smoothstep(-0.2f, 0.0f, sunY);
+    glm::vec3 night = glm::vec3(0.02f, 0.03f, 0.06f);
+    return glm::mix(night, day, daylight);
 }
