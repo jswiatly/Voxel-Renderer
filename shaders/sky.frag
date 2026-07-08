@@ -24,11 +24,17 @@ void main() {
     float aboveHorizon = smoothstep(-0.1, 0.0, sun.y);
     col += ubo.sunColor.rgb * (disc * 4.0 + halo) * aboveHorizon;
 
+    vec2 cs = normalize(sun.xy);
+    mat3 starRot = mat3( cs.x, cs.y, 0.0,
+                    -cs.y, cs.x, 0.0,
+                      0.0,  0.0, 1.0);
+    vec3 sray = starRot * ray;
+
 
     float night = 1.0 - smoothstep(-0.15, 0.05, sun.y);
-    vec3 cell = floor(ray * 150.0);
+    vec3 cell = floor(sray * 150.0);
     float h = fract(sin(dot(cell, vec3(127.1, 311.7, 74.7))) * 43758.5453);
-    float star = step(0.998, h) * fract(h * 1000.0);
+    float star = step(0.95, h) * fract(h * 1000.0);
     col += vec3(star) * night * smoothstep(0.0, 0.1, ray.y);
 
 
