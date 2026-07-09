@@ -34,8 +34,9 @@ void main() {
     float night = 1.0 - smoothstep(-0.15, 0.05, sun.y);
     vec3 cell = floor(sray * 150.0);
     float h = fract(sin(dot(cell, vec3(127.1, 311.7, 74.7))) * 43758.5453);
-    float star = step(0.95, h) * fract(h * 1000.0);
-    col += vec3(star) * night * smoothstep(0.0, 0.1, ray.y);
+    float milky = exp(-abs(dot(sray, normalize(vec3(1.0, 0.4, 0.3)))) * 6.0);
+    float star = step(0.998 - 0.008 * milky, h) * fract(h * 1000.0);
+    col += vec3(0.10, 0.11, 0.16) * milky * night * smoothstep(0.0, 0.1, ray.y);
 
 
     vec3 moonDir = -sun;
