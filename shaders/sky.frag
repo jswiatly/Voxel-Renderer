@@ -6,6 +6,21 @@ layout(binding = 0) uniform UBO { mat4 view; mat4 proj; vec4 sunDir; vec4 sunCol
 layout(location = 0) in vec3 vRayDir;
 layout(location = 0) out vec4 outColor;
 
+float hash21(vec2 v) {
+    return fract(sin(dot(v, vec2(127.1, 311.7))) * 43758.5453);
+}
+
+float noise2(vec2 p) {
+    vec2 ip = floor(p);
+    vec2 fp = fract(p);
+    fp = fp * fp * (3.0 - 2.0 * fp);
+    float a = hash21(ip);
+    float b = hash21(ip + vec2(1.0, 0.0));
+    float c = hash21(ip + vec2(0.0, 1.0));
+    float d = hash21(ip + vec2(1.0, 1.0));
+    return mix(mix(a, b, fp.x), mix(c, d, fp.x), fp.y);
+}
+
 void main() {
     vec3 ray = normalize(vRayDir);
 
@@ -34,9 +49,33 @@ void main() {
     float night = 1.0 - smoothstep(-0.15, 0.05, sun.y);
     vec3 cell = floor(sray * 150.0);
     float h = fract(sin(dot(cell, vec3(127.1, 311.7, 74.7))) * 43758.5453);
-    float milky = exp(-abs(dot(sray, normalize(vec3(1.0, 0.4, 0.3)))) * 6.0);
-    float star = step(0.998 - 0.008 * milky, h) * fract(h * 1000.0);
-    col += vec3(0.10, 0.11, 0.16) * milky * night * smoothstep(0.0, 0.1, ray.y);
+
+    // milky way: noisy band + dark dust rift + warm galactic core
+    vec3 bandN = normalize(vec3(1.0, 0.4, 0.3));
+    vec3 bu = normalize(cross(bandN, vec3(0.0, 1.0, 0.0)));
+    vec3 bv = cross(bandN, bu);
+    vec2 guv = vec2(dot(sray, bu), dot(sray, bv));
+
+    float gn = 0.0;
+    float amp = 0.6;
+    vec2 gp = guv * 5.0;
+    for (int i = 0; i < 3; ++i) {
+        gn += noise2(gp) * amp;
+        amp *= 0.5;
+        gp *= 2.3;
+    }
+
+    float bandDist = dot(sray, bandN);
+    float band = exp(-abs(bandDist) * 5.0);
+    float rift = 1.0 - 0.7 * exp(-abs(bandDist - 0.05 * (gn - 0.5)) * 20.0);
+    float core = exp(-distance(sray, bu) * 3.0);
+
+    float milky = band * rift * (0.3 + 1.1 * gn);
+    vec3 milkyCol = mix(vec3(0.10, 0.11, 0.17), vec3(0.24, 0.18, 0.12), core);
+    col += milkyCol * (milky + 1.2 * core * band * rift) * night * smoothstep(0.0, 0.1, ray.y);
+
+    float star = step(0.998 - 0.010 * milky, h) * fract(h * 1000.0);
+    col += vec3(star) * night * smoothstep(0.0, 0.1, ray.y);
 
 
     vec3 moonDir = -sun;
