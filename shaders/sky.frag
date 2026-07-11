@@ -74,7 +74,10 @@ void main() {
     vec3 milkyCol = mix(vec3(0.10, 0.11, 0.17), vec3(0.24, 0.18, 0.12), core);
     col += milkyCol * (milky + 1.2 * core * band * rift) * night * smoothstep(0.0, 0.1, ray.y);
 
-    float star = step(0.998 - 0.010 * milky, h) * fract(h * 1000.0);
+    vec3 fcell = fract(sray * 150.0);
+vec2 starPos = 0.2 + 0.6 * vec2(fract(h * 137.0), fract(h * 517.0));
+float d = distance(fcell.xy, starPos);
+float star = step(0.998 - 0.010 * milky, h) * smoothstep(0.5, 0.1, d) * fract(h * 1000.0);
     col += vec3(star) * night * smoothstep(0.0, 0.1, ray.y);
 
 
@@ -92,6 +95,6 @@ void main() {
     float moonGlow = pow(moonCos, 256.0) * 0.15;
     vec3 moonColor = vec3(0.75, 0.78, 0.82);
     col += (moonColor * moonDisc + moonColor * moonGlow) * night * smoothstep(0.0, 0.05, ray.y);
-
-    outColor = vec4(col, 1.0);
+    float dith = (hash21(gl_FragCoord.xy) - 0.5) / 255.0;
+    outColor = vec4(col + dith, 1.0);
 }
