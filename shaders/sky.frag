@@ -6,19 +6,36 @@ layout(binding = 0) uniform UBO { mat4 view; mat4 proj; vec4 sunDir; vec4 sunCol
 layout(location = 0) in vec3 vRayDir;
 layout(location = 0) out vec4 outColor;
 
+// sin-free hash: sin() loses fp32 precision on large inputs and shows grid artifacts
 float hash21(vec2 v) {
-    return fract(sin(dot(v, vec2(127.1, 311.7))) * 43758.5453);
+    vec3 p3 = fract(vec3(v.xyx) * 0.1031);
+    p3 += dot(p3, p3.yzx + 33.33);
+    return fract((p3.x + p3.y) * p3.z);
 }
 
 float noise2(vec2 p) {
     vec2 ip = floor(p);
     vec2 fp = fract(p);
-    fp = fp * fp * (3.0 - 2.0 * fp);
+    fp = fp * fp * fp * (fp * (fp * 6.0 - 15.0) + 10.0);
     float a = hash21(ip);
     float b = hash21(ip + vec2(1.0, 0.0));
     float c = hash21(ip + vec2(0.0, 1.0));
     float d = hash21(ip + vec2(1.0, 1.0));
     return mix(mix(a, b, fp.x), mix(c, d, fp.x), fp.y);
+}
+
+// rotate the domain each octave so grid axes never line up across octaves
+const mat2 octRot = mat2(0.8, -0.6, 0.6, 0.8);
+
+float fbm(vec2 p) {
+    float n = 0.0;
+    float amp = 0.55;
+    for (int i = 0; i < 5; ++i) {
+        n += noise2(p) * amp;
+        amp *= 0.5;
+        p = octRot * p * 2.13;
+    }
+    return n;
 }
 
 void main() {
@@ -56,28 +73,25 @@ void main() {
     vec3 bv = cross(bandN, bu);
     vec2 guv = vec2(dot(sray, bu), dot(sray, bv));
 
-    float gn = 0.0;
-    float amp = 0.6;
-    vec2 gp = guv * 5.0;
-    for (int i = 0; i < 3; ++i) {
-        gn += noise2(gp) * amp;
-        amp *= 0.5;
-        gp *= 2.3;
-    }
+    // domain warping (iq): sample fbm through fbm-distorted coordinates -> wispy filaments
+    vec2 gp = guv * 8.0;
+    vec2 q = vec2(fbm(gp), fbm(gp + vec2(5.2, 1.3)));
+    float gn = fbm(gp + 2.5 * q);
 
     float bandDist = dot(sray, bandN);
     float band = exp(-abs(bandDist) * 5.0);
-    float rift = 1.0 - 0.7 * exp(-abs(bandDist - 0.05 * (gn - 0.5)) * 20.0);
+    float rift = 1.0 - 0.7 * exp(-abs(bandDist - 0.12 * (q.x - 0.5)) * 20.0);
     float core = exp(-distance(sray, bu) * 3.0);
 
     float milky = band * rift * (0.3 + 1.1 * gn);
     vec3 milkyCol = mix(vec3(0.10, 0.11, 0.17), vec3(0.24, 0.18, 0.12), core);
+    milkyCol = mix(milkyCol, vec3(0.13, 0.12, 0.19), 0.5 * q.y);
     col += milkyCol * (milky + 1.2 * core * band * rift) * night * smoothstep(0.0, 0.1, ray.y);
 
     vec3 fcell = fract(sray * 150.0);
-vec2 starPos = 0.2 + 0.6 * vec2(fract(h * 137.0), fract(h * 517.0));
-float d = distance(fcell.xy, starPos);
-float star = step(0.998 - 0.010 * milky, h) * smoothstep(0.5, 0.1, d) * fract(h * 1000.0);
+    vec2 starPos = 0.2 + 0.6 * vec2(fract(h * 137.0), fract(h * 517.0));
+    float d = distance(fcell.xy, starPos);
+    float star = step(0.998 - 0.010 * milky, h) * smoothstep(0.5, 0.1, d) * fract(h * 1000.0);
     col += vec3(star) * night * smoothstep(0.0, 0.1, ray.y);
 
 
