@@ -8,6 +8,8 @@ A real-time renderer for procedural voxel terrain, written from scratch in **C++
 
 ![demo](docs/demo.gif)
 
+![demo2](docs/demo.png)
+
 ---
 
 ## Features
