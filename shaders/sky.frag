@@ -24,7 +24,6 @@ float noise2(vec2 p) {
     return mix(mix(a, b, fp.x), mix(c, d, fp.x), fp.y);
 }
 
-// rotate the domain each octave so grid axes never line up across octaves
 const mat2 octRot = mat2(0.8, -0.6, 0.6, 0.8);
 
 float fbm(vec2 p) {
@@ -79,11 +78,12 @@ void main() {
     float gn = fbm(gp + 2.5 * q);
 
     float bandDist = dot(sray, bandN);
-    float band = exp(-abs(bandDist) * 5.0);
     float rift = 1.0 - 0.7 * exp(-abs(bandDist - 0.12 * (q.x - 0.5)) * 20.0);
     float core = exp(-distance(sray, bu) * 3.0);
 
-    float milky = band * rift * (0.3 + 1.1 * gn);
+    float lengthMod = 0.6 + 0.8 * noise2(guv * 1.3 + 7.7);
+    float band = exp(-abs(bandDist) * 5.0 * (1.6 - 0.8 * lengthMod));
+    float milky = band * rift * (0.3 + 1.1 * gn) * lengthMod;
     vec3 milkyCol = mix(vec3(0.10, 0.11, 0.17), vec3(0.24, 0.18, 0.12), core);
     milkyCol = mix(milkyCol, vec3(0.13, 0.12, 0.19), 0.5 * q.y);
     col += milkyCol * (milky + 1.2 * core * band * rift) * night * smoothstep(0.0, 0.1, ray.y);
