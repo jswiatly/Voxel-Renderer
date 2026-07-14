@@ -63,6 +63,12 @@ void main() {
 
 
     float night = 1.0 - smoothstep(-0.15, 0.05, sun.y);
+
+    // moon disc computed early: it occludes the stars and the milky way
+    vec3 moonDir = -sun;
+    float moonCos = max(dot(ray, moonDir), 0.0);
+    float moonDisc = smoothstep(0.9993, 0.9995, moonCos);
+
     vec3 cell = floor(sray * 150.0);
     float h = fract(sin(dot(cell, vec3(127.1, 311.7, 74.7))) * 43758.5453);
 
@@ -86,29 +92,38 @@ void main() {
     float milky = band * rift * (0.3 + 1.1 * gn) * lengthMod;
     vec3 milkyCol = mix(vec3(0.10, 0.11, 0.17), vec3(0.24, 0.18, 0.12), core);
     milkyCol = mix(milkyCol, vec3(0.13, 0.12, 0.19), 0.5 * q.y);
-    col += milkyCol * (milky + 1.2 * core * band * rift) * night * smoothstep(0.0, 0.1, ray.y);
+    col += milkyCol * (milky + 1.2 * core * band * rift) * night * smoothstep(0.0, 0.1, ray.y) * (1.0 - moonDisc);
 
     vec3 fcell = fract(sray * 150.0);
     vec2 starPos = 0.2 + 0.6 * vec2(fract(h * 137.0), fract(h * 517.0));
     float d = distance(fcell.xy, starPos);
     float star = step(0.998 - 0.010 * milky, h) * smoothstep(0.5, 0.1, d) * fract(h * 1000.0);
-    col += vec3(star) * night * smoothstep(0.0, 0.1, ray.y);
+    col += vec3(star) * night * smoothstep(0.0, 0.1, ray.y) * (1.0 - moonDisc);
 
-
-    vec3 moonDir = -sun;
-    float moonCos = max(dot(ray, moonDir), 0.0);
-    float moonDisc = smoothstep(0.9993, 0.9995, moonCos);
 
     vec3 mu = normalize(cross(moonDir, vec3(0.0, 1.0, 0.0)));
     vec3 mv = cross(moonDir, mu);
     vec2 muv = vec2(dot(ray, mu), dot(ray, mv)) * 40.0;
 
-    vec2 cell2 = floor(muv);
-    float ch = fract(sin(dot(cell2, vec2(127.1, 311.7))) * 43758.5453);
-
+    // moon surface: maria (large dark patches) + two sizes of craters with bright rims
+    float surface = 0.72 + 0.45 * fbm(muv * 0.30 + 4.7);
+    for (int i = 0; i < 2; ++i) {
+        vec2 cm = muv * (1.0 + 1.3 * float(i));
+        vec2 ic = floor(cm);
+        float chh = hash21(ic + 17.0 * float(i));
+        vec2 center = ic + 0.25 + 0.5 * vec2(chh, fract(chh * 91.7));
+        float rad = 0.12 + 0.22 * fract(chh * 37.3);
+        float dc = length(cm - center);
+        float hasCrater = step(0.4, chh);
+        float w = 1.0 / (1.0 + 0.8 * float(i));
+        float floorDark = smoothstep(rad, rad * 0.35, dc);
+        float rim = smoothstep(rad * 1.3, rad, dc) - smoothstep(rad, rad * 0.7, dc);
+        surface -= 0.30 * floorDark * hasCrater * w;
+        surface += 0.16 * rim * hasCrater * w;
+    }
     float moonGlow = pow(moonCos, 256.0) * 0.15;
     vec3 moonColor = vec3(0.75, 0.78, 0.82);
-    col += (moonColor * moonDisc + moonColor * moonGlow) * night * smoothstep(0.0, 0.05, ray.y);
+    col += (moonColor * moonDisc * surface + moonColor * moonGlow) * night * smoothstep(0.0, 0.05, ray.y);
     float dith = (hash21(gl_FragCoord.xy) - 0.5) / 255.0;
     outColor = vec4(col + dith, 1.0);
 }
