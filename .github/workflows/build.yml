@@ -38,6 +38,7 @@ jobs:
 
       - name: Install GLFW build dependencies
         run: |
+          sudo rm -f /etc/apt/sources.list.d/*microsoft* /etc/apt/sources.list.d/azure-cli*
           sudo apt-get update
           sudo apt-get install -y xorg-dev libwayland-dev libxkbcommon-dev wayland-protocols
 
