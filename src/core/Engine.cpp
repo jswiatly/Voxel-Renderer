@@ -105,7 +105,7 @@ void Engine::mainLoop() {
 
         glm::mat4 view = camera.getViewMatrix();
         glm::mat4 proj = glm::perspective(
-            glm::radians(45.0f), m_swapchain.extent().width / (float)m_swapchain.extent().height, 0.1f, 1000.0f);
+            glm::radians(45.0f), m_swapchain.extent().width / (float)m_swapchain.extent().height, 0.1f, 2048.0f);
         proj[1][1] *= -1;
         UniformBufferObject ubo{};
         ubo.view = view;

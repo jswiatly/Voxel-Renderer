@@ -26,8 +26,8 @@ void main() {
 
     vec3 color = texture(texSampler, fragTexCoord).rgb * fragColor * light;
 
-    float fogStart = 100.0;
-    float fogEnd   = 250.0;
+    float fogStart = 1000.0;
+    float fogEnd   = 2048.0;
     float fogFactor = clamp((fogEnd - fragViewDist) / (fogEnd - fogStart), 0.0, 1.0);
     vec3  fogColor  = vec3(0.6, 0.7, 0.85);
 
