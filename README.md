@@ -6,8 +6,6 @@ A real-time renderer for procedural voxel terrain, written from scratch in **C++
 
 `C++20` · `Vulkan 1.3` · `GLFW` · `GLM` · `Dear ImGui` · `VMA`
 
-![demo](docs/demo.gif)
-
 ![demo2](docs/demo.png)
 
 ---
