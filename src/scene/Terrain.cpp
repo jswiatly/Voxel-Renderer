@@ -1,6 +1,8 @@
 #include "scene/Terrain.hpp"
 
 #include <cmath>
+#include <vector>
+#include <algorithm>
 #include <glm/glm.hpp>
 
 namespace {
@@ -71,7 +73,19 @@ void addFace(std::vector<Vertex>& vertices, std::vector<uint32_t>& indices, glm:
     indices.push_back(start + 0);
 }
 
-} // namespace
+constexpr uint8_t BLOCK_AIR = 0;
+constexpr uint8_t BLOCK_GRASS = 1;
+constexpr uint8_t BLOCK_DIRT = 2;
+constexpr uint8_t BLOCK_STONE = 3;
+constexpr uint8_t BLOCK_SAND = 4;
+constexpr uint8_t BLOCK_WATER = 5;
+
+constexpr int MIN_Y = -32;
+constexpr int MAX_Y = 128;
+constexpr int RANGE_Y = MAX_Y - MIN_Y + 1;
+constexpr int SEA = 0;
+
+}
 
 std::vector<Chunk> generateChunkedTerrain(int worldSize, int seed) {
     const int SIZE = worldSize;
@@ -87,7 +101,7 @@ std::vector<Chunk> generateChunkedTerrain(int worldSize, int seed) {
         }
     }
 
-    std::vector<int> heightMap(SIZE * SIZE);
+    std::vector<uint8_t> voxelMap(SIZE * SIZE * RANGE_Y, BLOCK_AIR);
 
     float seedPhase = float(seed) * 78.233f;
 
@@ -115,36 +129,114 @@ std::vector<Chunk> generateChunkedTerrain(int worldSize, int seed) {
         return t / n;
     };
 
-    constexpr int SEA = 0;
+    auto hash3 = [seedPhase](float x, float y, float z) {
+        float v = std::sin(x * 127.1f + y * 311.7f + z * 74.7f + seedPhase) * 43758.5453f;
+        return v - std::floor(v);
+    };
+
+    auto noise3D = [&](float x, float y, float z) {
+        float xi = std::floor(x), yi = std::floor(y), zi = std::floor(z);
+        float xf = x - xi, yf = y - yi, zf = z - zi;
+
+        float u = xf * xf * (3.f - 2.f * xf);
+        float v = yf * yf * (3.f - 2.f * yf);
+        float w = zf * zf * (3.f - 2.f * zf);
+
+        auto lerp = [](float a, float b, float t) { return a + t * (b - a); };
+
+        float c00 = lerp(hash3(xi, yi, zi), hash3(xi + 1, yi, zi), u);
+        float c10 = lerp(hash3(xi, yi + 1, zi), hash3(xi + 1, yi + 1, zi), u);
+        float c01 = lerp(hash3(xi, yi, zi + 1), hash3(xi + 1, yi, zi + 1), u);
+        float c11 = lerp(hash3(xi, yi + 1, zi + 1), hash3(xi + 1, yi + 1, zi + 1), u);
+
+        float c0 = lerp(c00, c10, v);
+        float c1 = lerp(c01, c11, v);
+
+        return lerp(c0, c1, w);
+    };
+
+    auto fbm3D = [&](float x, float y, float z) {
+        float t = 0.f, a = 1.f, f = 1.f, n = 0.f;
+        for (int i = 0; i < 4; ++i) {
+            t += noise3D(x * f, y * f, z * f) * a;
+            n += a;
+            a *= 0.5f;
+            f *= 2.0f;
+        }
+        return t / n;
+    };
 
     for (int gx = 0; gx < SIZE; ++gx) {
         for (int gz = 0; gz < SIZE; ++gz) {
             int x = gx - HALF;
             int z = gz - HALF;
             float fx = float(x), fz = float(z);
+
             float wx = (fbm((fx + 1000.f) * 0.005f, (fz + 1000.f) * 0.005f) - 0.5f) * 80.f;
             float wz = (fbm((fx - 1000.f) * 0.005f, (fz - 1000.f) * 0.005f) - 0.5f) * 80.f;
             fx += wx;
             fz += wz;
 
-            float plains = fbm(fx * 0.01, fz * 0.01f);
+            float plains = fbm(fx * 0.01f, fz * 0.01f);
             float sel = noise(fx * 0.008f, fz * 0.008f);
             sel = glm::clamp((sel - 0.5f) / 0.5f, 0.0f, 1.0f);
             sel = sel * sel;
             float mountains = fbm(fx * 0.03f, fz * 0.03f);
 
             int h = SEA + static_cast<int>(plains * 6.0f) + static_cast<int>(sel * mountains * 110.0f);
-            heightMap[gx * SIZE + gz] = h;
+
+            float moisture = fbm(float(gx) * 0.005f + 500.f, float(gz) * 0.005f + 500.f);
+
+            for (int y = MIN_Y; y <= MAX_Y; ++y) {
+                uint8_t block = BLOCK_AIR;
+
+                if (y <= h) {
+                    float density = float(h - y);
+
+                    if (y < h - 3) {
+                        float caveNoise = fbm3D(float(x) * 0.04f, float(y) * 0.04f, float(z) * 0.04f);
+                        if (caveNoise > 0.6f) {
+                            density = -1.0f;
+                        }
+                    }
+
+                    if (density >= 0.0f) {
+                        int depth = h - y;
+                        bool isBeachOrDesert = (h <= SEA + 2 && moisture < 0.5f);
+
+                        if (depth == 0) {
+                            block = isBeachOrDesert ? BLOCK_SAND : BLOCK_GRASS;
+                        } else if (depth < 4) {
+                            block = isBeachOrDesert ? BLOCK_SAND : BLOCK_DIRT;
+                        } else {
+                            block = BLOCK_STONE;
+                        }
+                    }
+                }
+
+                if (block == BLOCK_AIR && y <= SEA) {
+                    block = BLOCK_WATER;
+                }
+
+                if (block != BLOCK_AIR) {
+                    voxelMap[(gx * SIZE + gz) * RANGE_Y + (y - MIN_Y)] = block;
+                }
+            }
         }
     }
 
-    auto isSolid = [&](int x, int y, int z) {
+    auto getVoxel = [&](int x, int y, int z) -> uint8_t {
+        if (y < MIN_Y)
+            return BLOCK_STONE;
         int gx = x + HALF, gz = z + HALF;
-        if (gx < 0 || gx >= SIZE || gz < 0 || gz >= SIZE)
-            return false;
-        if (y < -6)
-            return true;
-        return y <= heightMap[gx * SIZE + gz];
+        if (gx < 0 || gx >= SIZE || gz < 0 || gz >= SIZE || y > MAX_Y)
+            return BLOCK_AIR;
+        return voxelMap[(gx * SIZE + gz) * RANGE_Y + (y - MIN_Y)];
+    };
+
+    auto isSolidAO = [&](int x, int y, int z) {
+        uint8_t b = getVoxel(x, y, z);
+        return b != BLOCK_AIR && b != BLOCK_WATER;
     };
 
     auto faceAO = [&](int x, int y, int z, int face) {
@@ -152,9 +244,9 @@ std::vector<Chunk> generateChunkedTerrain(int worldSize, int seed) {
         for (int i = 0; i < 4; ++i) {
             glm::ivec3 s1, s2, c;
             aoSamples(face, i, s1, s2, c);
-            bool b1 = isSolid(x + s1.x, y + s1.y, z + s1.z);
-            bool b2 = isSolid(x + s2.x, y + s2.y, z + s2.z);
-            bool bc = isSolid(x + c.x, y + c.y, z + c.z);
+            bool b1 = isSolidAO(x + s1.x, y + s1.y, z + s1.z);
+            bool b2 = isSolidAO(x + s2.x, y + s2.y, z + s2.z);
+            bool bc = isSolidAO(x + c.x, y + c.y, z + c.z);
             ao[i] = AO_CURVE[aoLevel(b1, b2, bc)];
         }
         return ao;
@@ -164,18 +256,44 @@ std::vector<Chunk> generateChunkedTerrain(int worldSize, int seed) {
         for (int gz = 0; gz < SIZE; ++gz) {
             int x = gx - HALF;
             int z = gz - HALF;
-            int h = heightMap[gx * SIZE + gz];
 
             int cx = gx / CHUNK_SIZE_X;
             int cz = gz / CHUNK_SIZE_Z;
             Chunk& chunk = chunks[cx * chunksPerAxis + cz];
 
-            for (int y = -6; y <= h; ++y) {
-                float layer = (y == h && h < 45) ? 0.0f : 1.0f;
+            for (int y = MIN_Y; y <= MAX_Y; ++y) {
+                uint8_t block = getVoxel(x, y, z);
+                if (block == BLOCK_AIR)
+                    continue;
+
+                float layer = 0.0f;
                 glm::vec3 col(1.0f);
+
+                if (block == BLOCK_GRASS)
+                    layer = 0.0f;
+                else if (block == BLOCK_DIRT)
+                    layer = 1.0f;
+                else if (block == BLOCK_STONE)
+                    layer = 2.0f;
+                else if (block == BLOCK_SAND)
+                    layer = 3.0f;
+                else if (block == BLOCK_WATER) {
+                    layer = 4.0f;
+                    col = glm::vec3(0.3f, 0.6f, 0.9f);
+                }
+
                 for (int f = 0; f < 6; ++f) {
                     glm::ivec3 d = FACE_DIR[f];
-                    if (!isSolid(x + d.x, y + d.y, z + d.z)) {
+                    uint8_t neighbor = getVoxel(x + d.x, y + d.y, z + d.z);
+
+                    bool drawFace = false;
+                    if (block == BLOCK_WATER) {
+                        drawFace = (neighbor == BLOCK_AIR);
+                    } else {
+                        drawFace = (neighbor == BLOCK_AIR || neighbor == BLOCK_WATER);
+                    }
+
+                    if (drawFace) {
                         glm::vec4 ao = faceAO(x, y, z, f);
                         addFace(chunk.vertices, chunk.indices, glm::vec3(x, y, z), f, col, ao, layer);
                     }
