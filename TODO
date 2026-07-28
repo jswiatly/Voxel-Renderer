@@ -1,1 +1,16 @@
+## Meshing & Optimization
+- [ ] **Greedy Meshing**
+- [ ] **Frustum Culling**
+- [ ] **Occlusion Culling**
 
+## Lighting & Visuals
+- [ ] **Voxel Ambient Occlusion (AO)**
+
+
+- [ ] **Multithreading** - Move chunk generation and meshing to worker threads.
+
+## Mechanics & Debugging
+- [ ] **Raycasting** - Accurate block targeting for camera/mouse.
+- [ ] **Terrain Modification** - Add/remove voxels with async chunk remeshing.
+- [ ] **Collision Detection**
+- [ ] **Debug UI**
