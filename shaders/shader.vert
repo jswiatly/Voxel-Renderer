@@ -15,12 +15,17 @@ layout(location = 1) out vec3 fragTexCoord;
 layout(location = 2) out vec3 fragNormal;
 layout(location = 3) out float fragViewDist;
 
+layout(push_constant) uniform Push {
+    mat4 model;
+} push;
+
 void main() {
-    vec4 viewPos = ubo.view * vec4(inPosition, 1.0);
+    vec4 worldPos = push.model * vec4(inPosition, 1.0);
+    vec4 viewPos = ubo.view * worldPos;
     gl_Position  = ubo.proj * viewPos;
 
     fragColor    = inColor;
     fragTexCoord = inTexCoord;
-    fragNormal   = inNormal;
+    fragNormal   = mat3(push.model) * inNormal;
     fragViewDist = length(viewPos.xyz);
 }

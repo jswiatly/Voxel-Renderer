@@ -14,14 +14,20 @@ class Mesh;
 class ImGuiLayer;
 class Skybox;
 class Texture;
+class Water;
 struct UniformBufferObject;
 
 class Renderer {
   public:
     void init(VulkanContext& ctx, Window& window, Swapchain& swapchain, Pipeline& pipeline, std::vector<Mesh>& chunks,
-              ImGuiLayer& imgui, Skybox& skybox, Texture& texture);
+              ImGuiLayer& imgui, Skybox& skybox, Texture& texture, std::vector<Mesh>& waterChunks, Water& water);
     void cleanup();
     void drawFrame(const UniformBufferObject& ubo, const glm::vec4& clearColor);
+    void setPlayer(Mesh* mesh, const glm::vec3& pos, bool visible) {
+        m_playerMesh = mesh;
+        m_playerPos = pos;
+        m_playerVisible = visible;
+    }
     void setRenderDistance(float d) {
         m_renderDistance = d;
     }
@@ -43,6 +49,11 @@ class Renderer {
     std::vector<Mesh>* m_chunks = nullptr;
     ImGuiLayer* m_imgui = nullptr;
     Skybox* m_skybox = nullptr;
+    std::vector<Mesh>* m_waterChunks = nullptr;
+    Water* m_water = nullptr;
+    Mesh* m_playerMesh = nullptr;
+    glm::vec3 m_playerPos{0.0f};
+    bool m_playerVisible = false;
 
     std::vector<VkCommandBuffer> m_commandBuffers;
     std::vector<VkSemaphore> m_imageAvailableSemaphores;

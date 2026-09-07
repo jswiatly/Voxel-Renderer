@@ -11,8 +11,11 @@
 #include "renderer/Vertex.hpp"
 #include "scene/Sky.hpp"
 #include "scene/Terrain.hpp"
+#include "scene/TerrainParams.hpp"
 
 #include <glm/gtc/matrix_transform.hpp>
+
+#include "scene/PlayerBlock.hpp"
 
 #include <cmath>
 #include <fstream>
@@ -47,22 +50,35 @@ void Engine::initVulkan() {
     m_pipeline.init(m_context, m_swapchain.imageFormat(), m_swapchain.depthFormat());
     m_swapchain.createFramebuffers(m_pipeline.renderPass());
     m_skybox.init(m_context, m_pipeline.renderPass());
+    m_water.init(m_context, m_pipeline.renderPass());
     m_texture.init(m_context, TEXTURE_PATHS);
     DumpVMAMemoryStats(m_context.allocator(), "vma_stats_init.json");
     loadTerrain(m_worldSize, m_seed);
+    const BlockMeshData block = buildBlockMesh({0.8f, 1.8f, 0.8f}, {0.9f, 0.25f, 0.2f});
+    m_playerMesh.init(m_context, block.vertices, block.indices);
     m_imgui.init(m_context, window_, m_pipeline.renderPass());
-    m_renderer.init(m_context, window_, m_swapchain, m_pipeline, m_chunks, m_imgui, m_skybox, m_texture);
+    m_renderer.init(m_context, window_, m_swapchain, m_pipeline, m_chunks, m_imgui, m_skybox, m_texture, m_waterChunks,
+                    m_water);
 }
 
 void Engine::loadTerrain(int size, int seed) {
-    std::vector<Chunk> chunks = generateChunkedTerrain(size, seed);
+    TerrainParams params;
+    params.worldSize = size;
+    params.seed = seed;
+    std::vector<Chunk> chunks = generateChunkedTerrain(params);
     m_chunks.reserve(chunks.size());
+    m_waterChunks.reserve(chunks.size());
     for (Chunk& c : chunks) {
-        if (c.vertices.empty())
-            continue;
-        m_chunks.emplace_back();
-        m_chunks.back().init(m_context, c.vertices, c.indices);
-        m_chunks.back().setCenter(c.center);
+        if (!c.vertices.empty()) {
+            m_chunks.emplace_back();
+            m_chunks.back().init(m_context, c.vertices, c.indices);
+            m_chunks.back().setCenter(c.center);
+        }
+        if (!c.waterVertices.empty()) {
+            m_waterChunks.emplace_back();
+            m_waterChunks.back().init(m_context, c.waterVertices, c.waterIndices);
+            m_waterChunks.back().setCenter(c.center);
+        }
     }
 }
 
@@ -71,6 +87,9 @@ void Engine::regenerateTerrain() {
     for (Mesh& m : m_chunks)
         m.cleanup();
     m_chunks.clear();
+    for (Mesh& m : m_waterChunks)
+        m.cleanup();
+    m_waterChunks.clear();
     loadTerrain(m_worldSize, m_seed);
 }
 
@@ -79,7 +98,7 @@ void Engine::mainLoop() {
         glfwPollEvents();
         time.update();
 
-        constexpr float DAY_LENGTH_GAME_SECONDS = 250.0f; // DEFAULT: 86400
+        constexpr float DAY_LENGTH_GAME_SECONDS = 86400.0f; // DEFAULT: 86400
         if (!m_manualTime) {
             m_timeOfDay = std::fmod(static_cast<float>(time.getGameTimeSeconds()), DAY_LENGTH_GAME_SECONDS) /
                           DAY_LENGTH_GAME_SECONDS;
@@ -92,7 +111,11 @@ void Engine::mainLoop() {
             vtot += m.vertexCount();
             itot += m.indexCount();
         }
-        ImGuiLayer::RenderStats stats{vtot, itot, static_cast<uint32_t>(m_chunks.size())};
+        for (Mesh& m : m_waterChunks) {
+            vtot += m.vertexCount();
+            itot += m.indexCount();
+        }
+        ImGuiLayer::RenderStats stats{vtot, itot, static_cast<uint32_t>(m_chunks.size() + m_waterChunks.size())};
         m_imgui.draw(camera, m_timeOfDay, m_manualTime, m_manualTOD, m_skyColor, stats, m_renderDistance, m_fogEnabled,
                      m_seed, m_worldSize, m_regenerate);
         m_validationLog.drawImGuiWindow();
@@ -112,7 +135,10 @@ void Engine::mainLoop() {
         ubo.proj = proj;
         ubo.sunDir = glm::vec4(getSunDirection(m_timeOfDay), m_fogEnabled ? 1.0f : 0.0f);
         ubo.sunColor = glm::vec4(getSunColor(m_timeOfDay), 0.35f);
+        ubo.camPosTime = glm::vec4(glm::vec3(glm::inverse(view)[3]), static_cast<float>(time.getRealTimeSeconds()));
         m_renderer.setRenderDistance(m_renderDistance);
+        constexpr glm::vec3 PLAYER_EYE_OFFSET{0.0f, 0.8f, 0.0f};
+        m_renderer.setPlayer(&m_playerMesh, camera.position - PLAYER_EYE_OFFSET, camera.thirdPerson);
         m_renderer.drawFrame(ubo, m_skyColor);
     }
 
@@ -124,9 +150,13 @@ void Engine::cleanup() {
     m_swapchain.cleanup();
     m_imgui.cleanup();
     m_skybox.cleanup();
+    m_water.cleanup();
     m_pipeline.cleanup();
     for (Mesh& m : m_chunks)
         m.cleanup();
+    for (Mesh& m : m_waterChunks)
+        m.cleanup();
+    m_playerMesh.cleanup();
     m_texture.cleanup();
     m_validationLog.cleanup(m_context.instance());
     m_context.cleanup();

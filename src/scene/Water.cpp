@@ -1,0 +1,266 @@
+#include "scene/Water.hpp"
+
+#include "core/VulkanContext.hpp"
+#include "core/Constants.hpp"
+#include "core/Mesh.hpp"
+#include <stdexcept>
+#include <fstream>
+#include <string>
+#include <cstring>
+
+static std::vector<char> readFile(const std::string& filename) {
+    std::ifstream file(filename, std::ios::ate | std::ios::binary);
+    if (!file.is_open())
+        throw std::runtime_error("failed to open file: " + filename);
+    size_t size = (size_t)file.tellg();
+    std::vector<char> buffer(size);
+    file.seekg(0);
+    file.read(buffer.data(), size);
+    return buffer;
+}
+
+static VkShaderModule createShaderModule(VkDevice device, const std::vector<char>& code) {
+    VkShaderModuleCreateInfo info{.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+                                  .codeSize = code.size(),
+                                  .pCode = reinterpret_cast<const uint32_t*>(code.data())};
+    VkShaderModule module;
+    if (vkCreateShaderModule(device, &info, nullptr, &module) != VK_SUCCESS)
+        throw std::runtime_error("failed to create shader module!");
+    return module;
+}
+
+void Water::init(VulkanContext& ctx, VkRenderPass renderPass) {
+    m_ctx = &ctx;
+    createDescriptorSetLayout();
+    createUniformBuffers();
+    createDescriptorPool();
+    createDescriptorSets();
+    createPipeline(renderPass);
+}
+
+void Water::createDescriptorSetLayout() {
+    VkDescriptorSetLayoutBinding ubo{.binding = 0,
+                                     .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+                                     .descriptorCount = 1,
+                                     .stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT};
+
+    VkDescriptorSetLayoutCreateInfo info{};
+    info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    info.bindingCount = 1;
+    info.pBindings = &ubo;
+    if (vkCreateDescriptorSetLayout(m_ctx->device(), &info, nullptr, &m_setLayout) != VK_SUCCESS)
+        throw std::runtime_error("failed to create water descriptor set layout!");
+}
+
+void Water::createUniformBuffers() {
+    VmaAllocator allocator = m_ctx->allocator();
+    VkDeviceSize bufferSize = sizeof(UniformBufferObject);
+
+    m_uniformBuffers.resize(MAX_FRAMES_IN_FLIGHT);
+    m_uniformAllocations.resize(MAX_FRAMES_IN_FLIGHT);
+    m_uniformMapped.resize(MAX_FRAMES_IN_FLIGHT);
+
+    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+        VmaAllocationCreateFlags flags =
+            VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
+        m_ctx->createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_AUTO, m_uniformBuffers[i],
+                            m_uniformAllocations[i], flags);
+        VmaAllocationInfo info;
+        vmaGetAllocationInfo(allocator, m_uniformAllocations[i], &info);
+        m_uniformMapped[i] = info.pMappedData;
+    }
+}
+
+void Water::createDescriptorPool() {
+    VkDescriptorPoolSize poolSize{
+        .type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+        .descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT),
+    };
+
+    VkDescriptorPoolCreateInfo poolInfo{};
+    poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+    poolInfo.poolSizeCount = 1;
+    poolInfo.pPoolSizes = &poolSize;
+    poolInfo.maxSets = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
+
+    if (vkCreateDescriptorPool(m_ctx->device(), &poolInfo, nullptr, &m_descriptorPool) != VK_SUCCESS)
+        throw std::runtime_error("failed to create water descriptor pool!");
+}
+
+void Water::createDescriptorSets() {
+    VkDevice device = m_ctx->device();
+    std::vector<VkDescriptorSetLayout> layouts(MAX_FRAMES_IN_FLIGHT, m_setLayout);
+
+    VkDescriptorSetAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    allocInfo.descriptorPool = m_descriptorPool;
+    allocInfo.descriptorSetCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
+    allocInfo.pSetLayouts = layouts.data();
+
+    m_descriptorSets.resize(MAX_FRAMES_IN_FLIGHT);
+    if (vkAllocateDescriptorSets(device, &allocInfo, m_descriptorSets.data()) != VK_SUCCESS)
+        throw std::runtime_error("failed to allocate water descriptor sets!");
+
+    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+        VkDescriptorBufferInfo bufferInfo{};
+        bufferInfo.buffer = m_uniformBuffers[i];
+        bufferInfo.offset = 0;
+        bufferInfo.range = sizeof(UniformBufferObject);
+
+        VkWriteDescriptorSet write{};
+        write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        write.dstSet = m_descriptorSets[i];
+        write.dstBinding = 0;
+        write.dstArrayElement = 0;
+        write.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        write.descriptorCount = 1;
+        write.pBufferInfo = &bufferInfo;
+
+        vkUpdateDescriptorSets(device, 1, &write, 0, nullptr);
+    }
+}
+
+void Water::createPipeline(VkRenderPass renderPass) {
+    VkDevice device = m_ctx->device();
+    auto vertCode = readFile("shaders/water_vert.spv");
+    auto fragCode = readFile("shaders/water_frag.spv");
+    VkShaderModule vertModule = createShaderModule(device, vertCode);
+    VkShaderModule fragModule = createShaderModule(device, fragCode);
+
+    VkPipelineShaderStageCreateInfo vertStage{.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+                                              .stage = VK_SHADER_STAGE_VERTEX_BIT,
+                                              .module = vertModule,
+                                              .pName = "main"};
+    VkPipelineShaderStageCreateInfo fragStage{.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+                                              .stage = VK_SHADER_STAGE_FRAGMENT_BIT,
+                                              .module = fragModule,
+                                              .pName = "main"};
+    VkPipelineShaderStageCreateInfo stages[] = {vertStage, fragStage};
+
+    auto bindingDescription = Vertex::getBindingDescription();
+    auto attributeDescriptions = Vertex::getAttributeDescriptions();
+    VkPipelineVertexInputStateCreateInfo vertexInput{.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
+                                                     .vertexBindingDescriptionCount = 1,
+                                                     .pVertexBindingDescriptions = &bindingDescription,
+                                                     .vertexAttributeDescriptionCount =
+                                                         static_cast<uint32_t>(attributeDescriptions.size()),
+                                                     .pVertexAttributeDescriptions = attributeDescriptions.data()};
+
+    VkPipelineInputAssemblyStateCreateInfo inputAssembly{
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
+        .topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
+        .primitiveRestartEnable = VK_FALSE};
+
+    VkPipelineViewportStateCreateInfo viewportState{
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO, .viewportCount = 1, .scissorCount = 1};
+
+    // No culling: the surface has to stay visible when the camera drops below it.
+    VkPipelineRasterizationStateCreateInfo rasterizer{.sType =
+                                                          VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
+                                                      .depthClampEnable = VK_FALSE,
+                                                      .rasterizerDiscardEnable = VK_FALSE,
+                                                      .polygonMode = VK_POLYGON_MODE_FILL,
+                                                      .cullMode = VK_CULL_MODE_NONE,
+                                                      .frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE,
+                                                      .depthBiasEnable = VK_FALSE,
+                                                      .lineWidth = 1.0f};
+
+    VkPipelineMultisampleStateCreateInfo multisampling{.sType =
+                                                           VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
+                                                       .rasterizationSamples = VK_SAMPLE_COUNT_1_BIT,
+                                                       .sampleShadingEnable = VK_FALSE};
+
+    // Depth test against the terrain, but no depth write: this is the standard
+    // transparency setup, and it is safe here because a single flat sheet does
+    // not overlap itself, so nothing needs back-to-front sorting.
+    VkPipelineDepthStencilStateCreateInfo depthStencil{.sType =
+                                                           VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
+                                                       .depthTestEnable = VK_TRUE,
+                                                       .depthWriteEnable = VK_FALSE,
+                                                       .depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL,
+                                                       .depthBoundsTestEnable = VK_FALSE,
+                                                       .stencilTestEnable = VK_FALSE};
+
+    VkPipelineColorBlendAttachmentState colorBlendAttachment{.blendEnable = VK_TRUE,
+                                                             .srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA,
+                                                             .dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
+                                                             .colorBlendOp = VK_BLEND_OP_ADD,
+                                                             .srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE,
+                                                             .dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO,
+                                                             .alphaBlendOp = VK_BLEND_OP_ADD,
+                                                             .colorWriteMask =
+                                                                 VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
+                                                                 VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT};
+    VkPipelineColorBlendStateCreateInfo colorBlending{.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
+                                                      .logicOpEnable = VK_FALSE,
+                                                      .attachmentCount = 1,
+                                                      .pAttachments = &colorBlendAttachment};
+
+    std::vector<VkDynamicState> dynamicStates = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
+    VkPipelineDynamicStateCreateInfo dynamicState{.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
+                                                  .dynamicStateCount = static_cast<uint32_t>(dynamicStates.size()),
+                                                  .pDynamicStates = dynamicStates.data()};
+
+    VkPipelineLayoutCreateInfo layoutInfo{
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO, .setLayoutCount = 1, .pSetLayouts = &m_setLayout};
+    if (vkCreatePipelineLayout(device, &layoutInfo, nullptr, &m_pipelineLayout) != VK_SUCCESS)
+        throw std::runtime_error("failed to create water pipeline layout!");
+
+    VkGraphicsPipelineCreateInfo pipelineInfo{.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
+                                              .stageCount = 2,
+                                              .pStages = stages,
+                                              .pVertexInputState = &vertexInput,
+                                              .pInputAssemblyState = &inputAssembly,
+                                              .pViewportState = &viewportState,
+                                              .pRasterizationState = &rasterizer,
+                                              .pMultisampleState = &multisampling,
+                                              .pDepthStencilState = &depthStencil,
+                                              .pColorBlendState = &colorBlending,
+                                              .pDynamicState = &dynamicState,
+                                              .layout = m_pipelineLayout,
+                                              .renderPass = renderPass,
+                                              .subpass = 0,
+                                              .basePipelineHandle = VK_NULL_HANDLE};
+    if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &m_pipeline) != VK_SUCCESS)
+        throw std::runtime_error("failed to create water pipeline!");
+
+    vkDestroyShaderModule(device, fragModule, nullptr);
+    vkDestroyShaderModule(device, vertModule, nullptr);
+}
+
+void Water::updateUniforms(uint32_t frame, const UniformBufferObject& ubo) {
+    memcpy(m_uniformMapped[frame], &ubo, sizeof(ubo));
+}
+
+void Water::record(VkCommandBuffer cmd, uint32_t frame, const std::vector<Mesh>& meshes, const glm::vec3& camPos,
+                   float renderDistance) {
+    if (meshes.empty())
+        return;
+
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, 0, 1, &m_descriptorSets[frame], 0,
+                            nullptr);
+
+    for (const Mesh& mesh : meshes) {
+        float dist = glm::distance(glm::vec2(camPos.x, camPos.z), glm::vec2(mesh.center().x, mesh.center().z));
+        if (dist > renderDistance)
+            continue;
+
+        VkBuffer vertexBuffers[] = {mesh.vertexBuffer()};
+        VkDeviceSize offsets[] = {0};
+        vkCmdBindVertexBuffers(cmd, 0, 1, vertexBuffers, offsets);
+        vkCmdBindIndexBuffer(cmd, mesh.indexBuffer(), 0, VK_INDEX_TYPE_UINT32);
+        vkCmdDrawIndexed(cmd, mesh.indexCount(), 1, 0, 0, 0);
+    }
+}
+
+void Water::cleanup() {
+    VkDevice device = m_ctx->device();
+    VmaAllocator allocator = m_ctx->allocator();
+    vkDestroyPipeline(device, m_pipeline, nullptr);
+    vkDestroyPipelineLayout(device, m_pipelineLayout, nullptr);
+    vkDestroyDescriptorPool(device, m_descriptorPool, nullptr);
+    vkDestroyDescriptorSetLayout(device, m_setLayout, nullptr);
+    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+        vmaDestroyBuffer(allocator, m_uniformBuffers[i], m_uniformAllocations[i]);
+}

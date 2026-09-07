@@ -70,6 +70,8 @@ add_executable(VoxelRenderer
     src/core/Renderer.cpp
     src/core/Engine.cpp
     src/scene/Skybox.cpp
+    src/scene/Water.cpp
+    src/scene/PlayerBlock.cpp
 )
 
 target_include_directories(VoxelRenderer PRIVATE src)
@@ -118,9 +120,26 @@ add_custom_command(
     COMMENT "Compiling sky.frag"
 )
 
+add_custom_command(
+    OUTPUT ${SHADER_OUT_DIR}/water_vert.spv
+    COMMAND ${CMAKE_COMMAND} -E make_directory ${SHADER_OUT_DIR}
+    COMMAND Vulkan::glslc ${CMAKE_CURRENT_SOURCE_DIR}/shaders/water.vert -o ${SHADER_OUT_DIR}/water_vert.spv
+    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/shaders/water.vert
+    COMMENT "Compiling water.vert"
+)
+
+add_custom_command(
+    OUTPUT ${SHADER_OUT_DIR}/water_frag.spv
+    COMMAND ${CMAKE_COMMAND} -E make_directory ${SHADER_OUT_DIR}
+    COMMAND Vulkan::glslc ${CMAKE_CURRENT_SOURCE_DIR}/shaders/water.frag -o ${SHADER_OUT_DIR}/water_frag.spv
+    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/shaders/water.frag
+    COMMENT "Compiling water.frag"
+)
+
 add_custom_target(Shaders DEPENDS
     ${SHADER_OUT_DIR}/vert.spv ${SHADER_OUT_DIR}/frag.spv
-    ${SHADER_OUT_DIR}/sky_vert.spv ${SHADER_OUT_DIR}/sky_frag.spv)
+    ${SHADER_OUT_DIR}/sky_vert.spv ${SHADER_OUT_DIR}/sky_frag.spv
+    ${SHADER_OUT_DIR}/water_vert.spv ${SHADER_OUT_DIR}/water_frag.spv)
 add_dependencies(VoxelRenderer Shaders)
 
 add_custom_command(TARGET VoxelRenderer POST_BUILD

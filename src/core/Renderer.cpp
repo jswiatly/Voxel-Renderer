@@ -7,14 +7,17 @@
 #include "core/ImGuiLayer.hpp"
 #include "core/Constants.hpp"
 #include "scene/Skybox.hpp"
+#include "scene/Water.hpp"
 #include "core/Texture.hpp"
+#include <glm/gtc/matrix_transform.hpp>
 
 #include <array>
 #include <cstring>
 #include <stdexcept>
 
 void Renderer::init(VulkanContext& ctx, Window& window, Swapchain& swapchain, Pipeline& pipeline,
-                    std::vector<Mesh>& chunks, ImGuiLayer& imgui, Skybox& skybox, Texture& texture) {
+                    std::vector<Mesh>& chunks, ImGuiLayer& imgui, Skybox& skybox, Texture& texture,
+                    std::vector<Mesh>& waterChunks, Water& water) {
     m_ctx = &ctx;
     m_window = &window;
     m_swapchain = &swapchain;
@@ -22,6 +25,8 @@ void Renderer::init(VulkanContext& ctx, Window& window, Swapchain& swapchain, Pi
     m_chunks = &chunks;
     m_imgui = &imgui;
     m_skybox = &skybox;
+    m_waterChunks = &waterChunks;
+    m_water = &water;
 
     createCommandBuffers();
     createSyncObjects();
@@ -147,6 +152,10 @@ void Renderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t image
     scissor.extent = m_swapchain->extent();
     vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
+    glm::mat4 identity(1.0f);
+    vkCmdPushConstants(commandBuffer, m_pipeline->pipelineLayout(), VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4),
+                       &identity);
+
     for (Mesh& mesh : *m_chunks) {
         float dist = glm::distance(glm::vec2(m_camPos.x, m_camPos.z), glm::vec2(mesh.center().x, mesh.center().z));
         if (dist > m_renderDistance)
@@ -159,7 +168,22 @@ void Renderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t image
         vkCmdDrawIndexed(commandBuffer, mesh.indexCount(), 1, 0, 0, 0);
     }
 
+    if (m_playerVisible && m_playerMesh) {
+        const glm::mat4 model = glm::translate(glm::mat4(1.0f), m_playerPos);
+        vkCmdPushConstants(commandBuffer, m_pipeline->pipelineLayout(), VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(model),
+                           &model);
+
+        VkBuffer vertexBuffers[] = {m_playerMesh->vertexBuffer()};
+        VkDeviceSize offsets[] = {0};
+        vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
+        vkCmdBindIndexBuffer(commandBuffer, m_playerMesh->indexBuffer(), 0, VK_INDEX_TYPE_UINT32);
+        vkCmdDrawIndexed(commandBuffer, m_playerMesh->indexCount(), 1, 0, 0, 0);
+    }
+
     m_skybox->record(commandBuffer, m_currentFrame);
+    // After the sky, so water at the horizon blends against it rather than
+    // against the clear colour.
+    m_water->record(commandBuffer, m_currentFrame, *m_waterChunks, m_camPos, m_renderDistance);
     m_imgui->renderDrawData(commandBuffer);
 
     vkCmdEndRenderPass(commandBuffer);
@@ -191,6 +215,7 @@ void Renderer::drawFrame(const UniformBufferObject& ubo, const glm::vec4& clearC
 
     memcpy(m_uniformMapped[m_currentFrame], &ubo, sizeof(ubo));
     m_skybox->updateUniforms(m_currentFrame, ubo);
+    m_water->updateUniforms(m_currentFrame, ubo);
 
     vkResetFences(device, 1, &m_inFlightFences[m_currentFrame]);
 

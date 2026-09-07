@@ -17,6 +17,7 @@
 #include "core/Window.hpp"
 #include "scene/Camera.hpp"
 #include "scene/Skybox.hpp"
+#include "scene/Water.hpp"
 
 class Engine {
   public:
@@ -41,9 +42,12 @@ class Engine {
     InputHandler m_input;
     Pipeline m_pipeline;
     std::vector<Mesh> m_chunks;
+    std::vector<Mesh> m_waterChunks;
     ImGuiLayer m_imgui;
     Renderer m_renderer;
     Skybox m_skybox;
+    Water m_water;
+    Mesh m_playerMesh;
 
     float m_timeOfDay = 0.0f;
     bool m_manualTime = false;
