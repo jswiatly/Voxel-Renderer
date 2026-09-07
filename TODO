@@ -14,3 +14,5 @@
 - [ ] **Terrain Modification** - Add/remove voxels with async chunk remeshing.
 - [ ] **Collision Detection**
 - [ ] **Debug UI**
+- [ ] **Cleanup**
+- [ ] **CodeReview**
