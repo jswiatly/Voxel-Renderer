@@ -28,8 +28,13 @@ void Renderer::init(VulkanContext& ctx, Window& window, Swapchain& swapchain, Pi
     m_waterChunks = &waterChunks;
     m_water = &water;
 
+    VkPhysicalDeviceProperties deviceProps;
+    vkGetPhysicalDeviceProperties(m_ctx->physicalDevice(), &deviceProps);
+    m_timestampPeriod = deviceProps.limits.timestampPeriod;
+
     createCommandBuffers();
     createSyncObjects();
+    createQueryPool();
     createUniformBuffers();
     createDescriptorPool();
     createDescriptorSets(pipeline, texture);
@@ -38,6 +43,7 @@ void Renderer::init(VulkanContext& ctx, Window& window, Swapchain& swapchain, Pi
 
 void Renderer::cleanup() {
     VkDevice device = m_ctx->device();
+    vkDestroyQueryPool(device, m_queryPool, nullptr);
     for (auto semaphore : m_renderFinishedSemaphores) {
         vkDestroySemaphore(device, semaphore, nullptr);
     }
@@ -117,6 +123,9 @@ void Renderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t image
         throw std::runtime_error("failed to begin recording command buffer!");
     }
 
+    vkCmdResetQueryPool(commandBuffer, m_queryPool, m_currentFrame * 2, 2);
+    vkCmdWriteTimestamp(commandBuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, m_queryPool, m_currentFrame * 2);
+
     VkRenderPassBeginInfo renderPassInfo{};
     renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
     renderPassInfo.renderPass = m_pipeline->renderPass();
@@ -188,6 +197,8 @@ void Renderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t image
 
     vkCmdEndRenderPass(commandBuffer);
 
+    vkCmdWriteTimestamp(commandBuffer, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, m_queryPool, m_currentFrame * 2 + 1);
+
     if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {
         throw std::runtime_error("failed to record command buffer!");
     }
@@ -199,6 +210,13 @@ void Renderer::drawFrame(const UniformBufferObject& ubo, const glm::vec4& clearC
     VkQueue presentQueue = m_ctx->presentQueue();
 
     vkWaitForFences(device, 1, &m_inFlightFences[m_currentFrame], VK_TRUE, UINT64_MAX);
+
+    uint64_t timestamps[2] = {0, 0};
+    VkResult res = vkGetQueryPoolResults(device, m_queryPool, m_currentFrame * 2, 2, sizeof(timestamps), timestamps,
+                                         sizeof(uint64_t), VK_QUERY_RESULT_64_BIT);
+    if (res == VK_SUCCESS) {
+        m_gpuTimeMs = (timestamps[1] - timestamps[0]) * m_timestampPeriod * 1e-6f;
+    }
 
     m_camPos = glm::vec3(glm::inverse(ubo.view)[3]);
 
@@ -344,5 +362,17 @@ void Renderer::createDescriptorSets(Pipeline& pipeline, Texture& texture) {
 
         vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0,
                                nullptr);
+    }
+}
+
+void Renderer::createQueryPool() {
+    VkQueryPoolCreateInfo queryPoolInfo{};
+    queryPoolInfo.sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO;
+    queryPoolInfo.queryType = VK_QUERY_TYPE_TIMESTAMP;
+
+    queryPoolInfo.queryCount = MAX_FRAMES_IN_FLIGHT * 2;
+
+    if (vkCreateQueryPool(m_ctx->device(), &queryPoolInfo, nullptr, &m_queryPool) != VK_SUCCESS) {
+        throw std::runtime_error("failed to create query pool!");
     }
 }

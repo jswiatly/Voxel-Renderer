@@ -165,7 +165,6 @@ void ImGuiLayer::newFrame() {
     ImGui_ImplVulkan_NewFrame();
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
-    ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode);
 }
 
 void ImGuiLayer::render() {
@@ -179,6 +178,32 @@ void ImGuiLayer::renderDrawData(VkCommandBuffer commandBuffer) {
 void ImGuiLayer::draw(Camera& camera, float& timeOfDay, bool& manualTime, float& manualTOD, const glm::vec4& skyColor,
                       const RenderStats& stats, float& renderDistance, bool& fogEnabled, int& seed, int& worldSize,
                       bool& regenerate) {
+    if (ImGui::BeginMainMenuBar()) {
+        if (ImGui::BeginMenu("File")) {
+            if (ImGui::MenuItem("New World")) {
+                regenerate = true;
+            }
+            ImGui::Separator();
+            // NOTE: closing the app from here needs a way to signal the main loop
+            // (e.g. an out-parameter or a stored GLFWwindow*), so it's left disabled for now.
+            ImGui::MenuItem("Exit", nullptr, false, false);
+            ImGui::EndMenu();
+        }
+
+        if (ImGui::BeginMenu("Scene")) {
+            ImGui::MenuItem("Fog", nullptr, &fogEnabled);
+            ImGui::MenuItem("Manual time of day", nullptr, &manualTime);
+            ImGui::Separator();
+            if (ImGui::MenuItem("Regenerate world")) {
+                regenerate = true;
+            }
+            ImGui::EndMenu();
+        }
+        ImGui::EndMainMenuBar();
+    }
+
+    ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode);
+
     ImGui::Begin("Settings");
 
     if (ImGui::CollapsingHeader("Environment", ImGuiTreeNodeFlags_DefaultOpen)) {
@@ -231,6 +256,8 @@ void ImGuiLayer::draw(Camera& camera, float& timeOfDay, bool& manualTime, float&
     ImGui::PlotHistogram("##frametime", m_frameTimes, FRAME_HISTORY, m_frameOffset, nullptr, 0.0f, FLT_MAX,
                          ImVec2(0, 50));
     ImGui::PopStyleColor();
+    ImGui::Text("CPU Time: %.3f ms", stats.cpuTimeMs);
+    ImGui::Text("GPU Time: %.3f ms", stats.gpuTimeMs);
 
     if (ImGui::BeginTable("StatsTable", 2, ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_RowBg)) {
         ImGui::TableNextRow();

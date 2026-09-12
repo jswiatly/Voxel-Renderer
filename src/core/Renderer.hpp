@@ -32,6 +32,10 @@ class Renderer {
         m_renderDistance = d;
     }
 
+    float getGpuTime() const {
+        return m_gpuTimeMs;
+    }
+
   private:
     void createCommandBuffers();
     void createSyncObjects();
@@ -68,4 +72,10 @@ class Renderer {
     std::vector<void*> m_uniformMapped;
     VkDescriptorPool m_descriptorPool = VK_NULL_HANDLE;
     std::vector<VkDescriptorSet> m_descriptorSets;
+
+    VkQueryPool m_queryPool;
+    float m_timestampPeriod = 1.0f;
+    float m_gpuTimeMs = 0.0f;
+
+    void createQueryPool();
 };

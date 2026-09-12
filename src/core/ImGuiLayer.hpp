@@ -13,6 +13,8 @@ class ImGuiLayer {
         uint32_t vertices = 0;
         uint32_t indices = 0;
         uint32_t drawCalls = 0;
+        float cpuTimeMs = 0.0f;
+        float gpuTimeMs = 0.0f;
     };
     void init(VulkanContext& ctx, Window& window, VkRenderPass renderPass);
     void cleanup();

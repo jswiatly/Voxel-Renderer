@@ -54,6 +54,7 @@ class Engine {
     bool m_fogEnabled = true;
     float m_manualTOD = 0.5f;
     float m_renderDistance = 256.0f;
+    float m_cpuTimeMs = 0.0f;
     int m_worldSize = 2048;
     int m_seed = 1337;
     bool m_regenerate = false;

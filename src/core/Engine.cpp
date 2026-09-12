@@ -22,6 +22,8 @@
 #include <iostream>
 #include <vector>
 
+#include <chrono>
+
 #ifdef NDEBUG
 const bool enableValidationLayers = false;
 #else
@@ -95,6 +97,8 @@ void Engine::regenerateTerrain() {
 
 void Engine::mainLoop() {
     while (!window_.shouldClose()) {
+        auto frameStart = std::chrono::high_resolution_clock::now();
+
         glfwPollEvents();
         time.update();
 
@@ -140,6 +144,9 @@ void Engine::mainLoop() {
         constexpr glm::vec3 PLAYER_EYE_OFFSET{0.0f, 0.8f, 0.0f};
         m_renderer.setPlayer(&m_playerMesh, camera.position - PLAYER_EYE_OFFSET, camera.thirdPerson);
         m_renderer.drawFrame(ubo, m_skyColor);
+
+        auto frameEnd = std::chrono::high_resolution_clock::now();
+        m_cpuTimeMs = std::chrono::duration<float, std::milli>(frameEnd - frameStart).count();
     }
 
     vkDeviceWaitIdle(m_context.device());
