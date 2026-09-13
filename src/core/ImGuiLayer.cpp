@@ -180,12 +180,9 @@ void ImGuiLayer::draw(Camera& camera, float& timeOfDay, bool& manualTime, float&
                       bool& regenerate) {
     if (ImGui::BeginMainMenuBar()) {
         if (ImGui::BeginMenu("File")) {
-            if (ImGui::MenuItem("New World")) {
+            if (ImGui::MenuItem("New World"))
                 regenerate = true;
-            }
             ImGui::Separator();
-            // NOTE: closing the app from here needs a way to signal the main loop
-            // (e.g. an out-parameter or a stored GLFWwindow*), so it's left disabled for now.
             ImGui::MenuItem("Exit", nullptr, false, false);
             ImGui::EndMenu();
         }
@@ -194,9 +191,8 @@ void ImGuiLayer::draw(Camera& camera, float& timeOfDay, bool& manualTime, float&
             ImGui::MenuItem("Fog", nullptr, &fogEnabled);
             ImGui::MenuItem("Manual time of day", nullptr, &manualTime);
             ImGui::Separator();
-            if (ImGui::MenuItem("Regenerate world")) {
+            if (ImGui::MenuItem("Regenerate world"))
                 regenerate = true;
-            }
             ImGui::EndMenu();
         }
         ImGui::EndMainMenuBar();
@@ -204,89 +200,109 @@ void ImGuiLayer::draw(Camera& camera, float& timeOfDay, bool& manualTime, float&
 
     ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode);
 
-    ImGui::Begin("Settings");
+    // 1. Zwarty panel kontrolny z zakładkami
+    ImGui::SetNextWindowSize(ImVec2(380, 450), ImGuiCond_FirstUseEver);
+    ImGui::Begin("Control Panel");
 
-    if (ImGui::CollapsingHeader("Environment", ImGuiTreeNodeFlags_DefaultOpen)) {
-        int hh = static_cast<int>(timeOfDay * 24.0f);
-        int mm = static_cast<int>(timeOfDay * 24.0f * 60.0f) % 60;
-        int ss = static_cast<int>(timeOfDay * 24.0f * 3600.0f) % 60;
-        ImGui::Text("In-game time: %02d:%02d:%02d", hh, mm, ss);
-        ImGui::ColorButton("Sky", ImVec4(skyColor.r, skyColor.g, skyColor.b, skyColor.a), 0, ImVec2(80, 20));
-        ImGui::Checkbox("Manual time of day", &manualTime);
-        if (manualTime) {
-            ImGui::SliderFloat("Time of day", &manualTOD, 0.0f, 1.0f);
-            timeOfDay = manualTOD;
+    if (ImGui::BeginTabBar("MainTabs")) {
+
+        // Zakładka Ustawień
+        if (ImGui::BeginTabItem("Settings")) {
+            if (ImGui::CollapsingHeader("Environment", ImGuiTreeNodeFlags_DefaultOpen)) {
+                int hh = static_cast<int>(timeOfDay * 24.0f);
+                int mm = static_cast<int>(timeOfDay * 24.0f * 60.0f) % 60;
+                int ss = static_cast<int>(timeOfDay * 24.0f * 3600.0f) % 60;
+                ImGui::Text("In-game time: %02d:%02d:%02d", hh, mm, ss);
+                ImGui::ColorButton("Sky", ImVec4(skyColor.r, skyColor.g, skyColor.b, skyColor.a), 0, ImVec2(80, 20));
+                ImGui::Checkbox("Manual time of day", &manualTime);
+                if (manualTime) {
+                    ImGui::SliderFloat("Time of day", &manualTOD, 0.0f, 1.0f);
+                    timeOfDay = manualTOD;
+                }
+                ImGui::Checkbox("Fog", &fogEnabled);
+            }
+
+            if (ImGui::CollapsingHeader("Camera", ImGuiTreeNodeFlags_DefaultOpen)) {
+                ImGui::SliderFloat("Render distance", &renderDistance, 16.0f, MAX_RENDER_DISTANCE, "%.0f",
+                                   ImGuiSliderFlags_Logarithmic);
+                ImGui::SliderFloat("Camera speed", &camera.movementSpeed, 1.0f, 50.0f, "%.1f");
+            }
+
+            if (ImGui::CollapsingHeader("World Generation", ImGuiTreeNodeFlags_DefaultOpen)) {
+                ImGui::PushItemWidth(100.0f);
+                ImGui::InputInt("Seed", &seed);
+                ImGui::SameLine();
+                ImGui::InputInt("World size", &worldSize);
+                ImGui::PopItemWidth();
+
+                ImGui::SameLine();
+                if (ImGui::Button("Regenerate"))
+                    regenerate = true;
+            }
+            ImGui::EndTabItem();
         }
-        ImGui::Checkbox("Fog", &fogEnabled);
+
+        // Zakładka Wydajności
+        if (ImGui::BeginTabItem("Performance")) {
+            float ms = ImGui::GetIO().DeltaTime * 1000.0f;
+            m_frameTimes[m_frameOffset] = ms;
+            m_frameOffset = (m_frameOffset + 1) % FRAME_HISTORY;
+
+            ImGui::Text("Average: %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate,
+                        ImGui::GetIO().Framerate);
+
+            ImVec4 histColor = ImVec4(0.20f, 0.80f, 0.30f, 1.0f);
+            if (ms > 16.6f)
+                histColor = ImVec4(0.80f, 0.80f, 0.20f, 1.0f);
+            if (ms > 33.3f)
+                histColor = ImVec4(0.90f, 0.20f, 0.20f, 1.0f);
+
+            ImGui::PushStyleColor(ImGuiCol_PlotHistogram, histColor);
+            ImGui::PlotHistogram("##frametime", m_frameTimes, FRAME_HISTORY, m_frameOffset, nullptr, 0.0f, FLT_MAX,
+                                 ImVec2(0, 50));
+            ImGui::PopStyleColor();
+
+            ImGui::Text("CPU Time: %.3f ms", stats.cpuTimeMs);
+            ImGui::Text("GPU Time: %.3f ms", stats.gpuTimeMs);
+            ImGui::Spacing();
+
+            if (ImGui::BeginTable("StatsTable", 2, ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_RowBg)) {
+                ImGui::TableNextRow();
+                ImGui::TableSetColumnIndex(0);
+                ImGui::Text("Vertices");
+                ImGui::TableSetColumnIndex(1);
+                ImGui::Text("%s", groupThousands(stats.vertices).c_str());
+
+                ImGui::TableNextRow();
+                ImGui::TableSetColumnIndex(0);
+                ImGui::Text("Indices");
+                ImGui::TableSetColumnIndex(1);
+                ImGui::Text("%s", groupThousands(stats.indices).c_str());
+
+                ImGui::TableNextRow();
+                ImGui::TableSetColumnIndex(0);
+                ImGui::Text("Draw calls");
+                ImGui::TableSetColumnIndex(1);
+                ImGui::Text("%u", stats.drawCalls);
+
+                ImGui::EndTable();
+            }
+            ImGui::EndTabItem();
+        }
+        ImGui::EndTabBar();
     }
+    ImGui::End(); // Koniec panelu głównego
 
-    if (ImGui::CollapsingHeader("Camera", ImGuiTreeNodeFlags_DefaultOpen)) {
-        ImGui::SliderFloat("Render distance", &renderDistance, 16.0f, MAX_RENDER_DISTANCE, "%.0f",
-                           ImGuiSliderFlags_Logarithmic);
-        ImGui::SliderFloat("Camera speed", &camera.movementSpeed, 1.0f, 50.0f, "%.1f");
-    }
+    // 2. Nienaprzykrzający się HUD z orientacją 3D
+    ImGuiWindowFlags overlayFlags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_AlwaysAutoResize |
+                                    ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_NoFocusOnAppearing |
+                                    ImGuiWindowFlags_NoNav;
 
-    if (ImGui::CollapsingHeader("World Generation", ImGuiTreeNodeFlags_DefaultOpen)) {
-        ImGui::PushItemWidth(100.0f);
-        ImGui::InputInt("Seed", &seed);
-        ImGui::SameLine();
-        ImGui::InputInt("World size", &worldSize);
-        ImGui::PopItemWidth();
-
-        ImGui::SameLine();
-        if (ImGui::Button("Regenerate"))
-            regenerate = true;
-    }
-    ImGui::End();
-
-    ImGui::Begin("Performance");
-    float ms = ImGui::GetIO().DeltaTime * 1000.0f;
-    m_frameTimes[m_frameOffset] = ms;
-    m_frameOffset = (m_frameOffset + 1) % FRAME_HISTORY;
-
-    ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate,
-                ImGui::GetIO().Framerate);
-
-    ImVec4 histColor = ImVec4(0.20f, 0.80f, 0.30f, 1.0f); // Green
-    if (ms > 16.6f)
-        histColor = ImVec4(0.80f, 0.80f, 0.20f, 1.0f);
-    if (ms > 33.3f)
-        histColor = ImVec4(0.90f, 0.20f, 0.20f, 1.0f);
-    ImGui::PushStyleColor(ImGuiCol_PlotHistogram, histColor); // R,G,B,A
-    ImGui::PlotHistogram("##frametime", m_frameTimes, FRAME_HISTORY, m_frameOffset, nullptr, 0.0f, FLT_MAX,
-                         ImVec2(0, 50));
-    ImGui::PopStyleColor();
-    ImGui::Text("CPU Time: %.3f ms", stats.cpuTimeMs);
-    ImGui::Text("GPU Time: %.3f ms", stats.gpuTimeMs);
-
-    if (ImGui::BeginTable("StatsTable", 2, ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_RowBg)) {
-        ImGui::TableNextRow();
-        ImGui::TableSetColumnIndex(0);
-        ImGui::Text("Vertices");
-        ImGui::TableSetColumnIndex(1);
-        ImGui::Text("%s", groupThousands(stats.vertices).c_str());
-
-        ImGui::TableNextRow();
-        ImGui::TableSetColumnIndex(0);
-        ImGui::Text("Indices");
-        ImGui::TableSetColumnIndex(1);
-        ImGui::Text("%s", groupThousands(stats.indices).c_str());
-
-        ImGui::TableNextRow();
-        ImGui::TableSetColumnIndex(0);
-        ImGui::Text("Draw calls");
-        ImGui::TableSetColumnIndex(1);
-        ImGui::Text("%u", stats.drawCalls);
-
-        ImGui::EndTable();
-    }
-    ImGui::End();
-
-    ImGui::Begin("3D Orientation", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_AlwaysAutoResize);
+    ImGui::SetNextWindowBgAlpha(0.35f); // Półprzezroczyste tło
+    ImGui::Begin("3D Orientation", nullptr, overlayFlags);
 
     ImDrawList* draw_list = ImGui::GetWindowDrawList();
     ImVec2 p = ImGui::GetCursorScreenPos();
-
     float size = 120.0f;
     float axis_length = 45.0f;
     ImVec2 center = ImVec2(p.x + size / 2.0f, p.y + size / 2.0f);

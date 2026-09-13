@@ -119,7 +119,11 @@ void Engine::mainLoop() {
             vtot += m.vertexCount();
             itot += m.indexCount();
         }
-        ImGuiLayer::RenderStats stats{vtot, itot, static_cast<uint32_t>(m_chunks.size() + m_waterChunks.size())};
+        ImGuiLayer::RenderStats stats{
+            vtot, itot, static_cast<uint32_t>(m_chunks.size() + m_waterChunks.size()),
+            m_cpuTimeMs,            // <-- przekazanie czasu CPU
+            m_renderer.getGpuTime() // <-- przekazanie czasu GPU
+        };
         m_imgui.draw(camera, m_timeOfDay, m_manualTime, m_manualTOD, m_skyColor, stats, m_renderDistance, m_fogEnabled,
                      m_seed, m_worldSize, m_regenerate);
         m_validationLog.drawImGuiWindow();

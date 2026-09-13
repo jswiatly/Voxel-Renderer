@@ -77,5 +77,7 @@ class Renderer {
     float m_timestampPeriod = 1.0f;
     float m_gpuTimeMs = 0.0f;
 
+    bool m_queryValid[2] = {false};
+
     void createQueryPool();
 };

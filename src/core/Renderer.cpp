@@ -211,12 +211,15 @@ void Renderer::drawFrame(const UniformBufferObject& ubo, const glm::vec4& clearC
 
     vkWaitForFences(device, 1, &m_inFlightFences[m_currentFrame], VK_TRUE, UINT64_MAX);
 
-    uint64_t timestamps[2] = {0, 0};
-    VkResult res = vkGetQueryPoolResults(device, m_queryPool, m_currentFrame * 2, 2, sizeof(timestamps), timestamps,
-                                         sizeof(uint64_t), VK_QUERY_RESULT_64_BIT);
-    if (res == VK_SUCCESS) {
-        m_gpuTimeMs = (timestamps[1] - timestamps[0]) * m_timestampPeriod * 1e-6f;
+    if (m_queryValid[m_currentFrame]) {
+        uint64_t timestamps[2] = {0, 0};
+        VkResult res = vkGetQueryPoolResults(device, m_queryPool, m_currentFrame * 2, 2, sizeof(timestamps), timestamps,
+                                             sizeof(uint64_t), VK_QUERY_RESULT_64_BIT);
+        if (res == VK_SUCCESS) {
+            m_gpuTimeMs = (timestamps[1] - timestamps[0]) * m_timestampPeriod * 1e-6f;
+        }
     }
+    m_queryValid[m_currentFrame] = true;
 
     m_camPos = glm::vec3(glm::inverse(ubo.view)[3]);
 
