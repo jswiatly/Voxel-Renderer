@@ -36,6 +36,16 @@ class Renderer {
         return m_gpuTimeMs;
     }
 
+    struct FrameStats {
+        uint32_t terrainChunksDrawn = 0;
+        uint32_t waterChunksDrawn = 0;
+        uint32_t sceneDrawCalls = 0;
+    };
+
+    const FrameStats& getFrameStats() const {
+        return m_frameStats;
+    }
+
   private:
     void createCommandBuffers();
     void createSyncObjects();
@@ -57,6 +67,7 @@ class Renderer {
     Water* m_water = nullptr;
     Mesh* m_playerMesh = nullptr;
     glm::vec3 m_playerPos{0.0f};
+    FrameStats m_frameStats{};
     bool m_playerVisible = false;
 
     std::vector<VkCommandBuffer> m_commandBuffers;

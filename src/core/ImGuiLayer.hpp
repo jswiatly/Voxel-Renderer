@@ -10,9 +10,11 @@ class Camera;
 class ImGuiLayer {
   public:
     struct RenderStats {
-        uint32_t vertices = 0;
-        uint32_t indices = 0;
-        uint32_t drawCalls = 0;
+        uint32_t terrainChunksDrawn = 0;
+        uint32_t terrainChunksTotal = 0;
+        uint32_t waterChunksDrawn = 0;
+        uint32_t waterChunksTotal = 0;
+        uint32_t sceneDrawCalls = 0;
         float cpuTimeMs = 0.0f;
         float gpuTimeMs = 0.0f;
     };

@@ -110,20 +110,18 @@ void Engine::mainLoop() {
         m_skyColor = getSkyColor(m_timeOfDay);
 
         m_imgui.newFrame();
-        uint32_t vtot = 0, itot = 0;
-        for (Mesh& m : m_chunks) {
-            vtot += m.vertexCount();
-            itot += m.indexCount();
-        }
-        for (Mesh& m : m_waterChunks) {
-            vtot += m.vertexCount();
-            itot += m.indexCount();
-        }
+        const Renderer::FrameStats& rendererStats = m_renderer.getFrameStats();
+
         ImGuiLayer::RenderStats stats{
-            vtot, itot, static_cast<uint32_t>(m_chunks.size() + m_waterChunks.size()),
-            m_cpuTimeMs,            // <-- przekazanie czasu CPU
-            m_renderer.getGpuTime() // <-- przekazanie czasu GPU
+            .terrainChunksDrawn = rendererStats.terrainChunksDrawn,
+            .terrainChunksTotal = static_cast<uint32_t>(m_chunks.size()),
+            .waterChunksDrawn = rendererStats.waterChunksDrawn,
+            .waterChunksTotal = static_cast<uint32_t>(m_waterChunks.size()),
+            .sceneDrawCalls = rendererStats.sceneDrawCalls,
+            .cpuTimeMs = m_cpuTimeMs,
+            .gpuTimeMs = m_renderer.getGpuTime(),
         };
+
         m_imgui.draw(camera, m_timeOfDay, m_manualTime, m_manualTOD, m_skyColor, stats, m_renderDistance, m_fogEnabled,
                      m_seed, m_worldSize, m_regenerate);
         m_validationLog.drawImGuiWindow();

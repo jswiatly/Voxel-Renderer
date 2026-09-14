@@ -15,8 +15,8 @@ class Water {
     void init(VulkanContext& ctx, VkRenderPass renderPass);
     void cleanup();
     void updateUniforms(uint32_t frame, const UniformBufferObject& ubo);
-    void record(VkCommandBuffer cmd, uint32_t frame, const std::vector<Mesh>& meshes, const glm::vec3& camPos,
-                float renderDistance);
+    uint32_t record(VkCommandBuffer cmd, uint32_t frame, const std::vector<Mesh>& meshes, const glm::vec3& camPos,
+                    float renderDistance);
 
   private:
     void createDescriptorSetLayout();

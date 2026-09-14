@@ -232,10 +232,12 @@ void Water::updateUniforms(uint32_t frame, const UniformBufferObject& ubo) {
     memcpy(m_uniformMapped[frame], &ubo, sizeof(ubo));
 }
 
-void Water::record(VkCommandBuffer cmd, uint32_t frame, const std::vector<Mesh>& meshes, const glm::vec3& camPos,
-                   float renderDistance) {
+uint32_t Water::record(VkCommandBuffer cmd, uint32_t frame, const std::vector<Mesh>& meshes, const glm::vec3& camPos,
+                       float renderDistance) {
     if (meshes.empty())
-        return;
+        return 0;
+
+    uint32_t drawn = 0;
 
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
     vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, 0, 1, &m_descriptorSets[frame], 0,
@@ -251,7 +253,10 @@ void Water::record(VkCommandBuffer cmd, uint32_t frame, const std::vector<Mesh>&
         vkCmdBindVertexBuffers(cmd, 0, 1, vertexBuffers, offsets);
         vkCmdBindIndexBuffer(cmd, mesh.indexBuffer(), 0, VK_INDEX_TYPE_UINT32);
         vkCmdDrawIndexed(cmd, mesh.indexCount(), 1, 0, 0, 0);
+        ++drawn;
     }
+
+    return drawn;
 }
 
 void Water::cleanup() {

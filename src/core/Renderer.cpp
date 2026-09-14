@@ -116,6 +116,7 @@ void Renderer::recreateSwapchain() {
 }
 
 void Renderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex, const glm::vec4& clearColor) {
+    m_frameStats = {};
     VkCommandBufferBeginInfo beginInfo{};
     beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 
@@ -175,6 +176,8 @@ void Renderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t image
         vkCmdBindIndexBuffer(commandBuffer, mesh.indexBuffer(), 0, VK_INDEX_TYPE_UINT32);
 
         vkCmdDrawIndexed(commandBuffer, mesh.indexCount(), 1, 0, 0, 0);
+        ++m_frameStats.terrainChunksDrawn;
+        ++m_frameStats.sceneDrawCalls;
     }
 
     if (m_playerVisible && m_playerMesh) {
@@ -187,12 +190,17 @@ void Renderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t image
         vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
         vkCmdBindIndexBuffer(commandBuffer, m_playerMesh->indexBuffer(), 0, VK_INDEX_TYPE_UINT32);
         vkCmdDrawIndexed(commandBuffer, m_playerMesh->indexCount(), 1, 0, 0, 0);
+        ++m_frameStats.sceneDrawCalls;
     }
 
     m_skybox->record(commandBuffer, m_currentFrame);
+    ++m_frameStats.sceneDrawCalls;
     // After the sky, so water at the horizon blends against it rather than
     // against the clear colour.
-    m_water->record(commandBuffer, m_currentFrame, *m_waterChunks, m_camPos, m_renderDistance);
+    m_frameStats.waterChunksDrawn =
+        m_water->record(commandBuffer, m_currentFrame, *m_waterChunks, m_camPos, m_renderDistance);
+
+    m_frameStats.sceneDrawCalls += m_frameStats.waterChunksDrawn;
     m_imgui->renderDrawData(commandBuffer);
 
     vkCmdEndRenderPass(commandBuffer);

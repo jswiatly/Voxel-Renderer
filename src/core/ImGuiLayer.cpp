@@ -3,6 +3,7 @@
 #include "core/Window.hpp"
 #include "core/Constants.hpp"
 #include "scene/Camera.hpp"
+#include "scene/Terrain.hpp"
 
 #include <imgui.h>
 #include <imgui_impl_glfw.h>
@@ -15,6 +16,7 @@
 #include <stdexcept>
 #include <string>
 #include <array>
+#include <cmath>
 
 namespace {
 
@@ -198,7 +200,52 @@ void ImGuiLayer::draw(Camera& camera, float& timeOfDay, bool& manualTime, float&
         ImGui::EndMainMenuBar();
     }
 
+    const int chunksPerAxis = (worldSize + CHUNK_SIZE_X - 1) / CHUNK_SIZE_X;
+
+    const int chunkX = static_cast<int>(std::floor((camera.position.x + worldSize * 0.5f) / CHUNK_SIZE_X));
+    const int chunkZ = static_cast<int>(std::floor((camera.position.z + worldSize * 0.5f) / CHUNK_SIZE_Z));
+
+    const bool insideWorld = chunkX >= 0 && chunkX < chunksPerAxis && chunkZ >= 0 && chunkZ < chunksPerAxis;
+
+    const ImGuiViewport* viewport = ImGui::GetMainViewport();
+    ImGui::SetNextWindowBgAlpha(0.55f);
+
+    ImGui::SetNextWindowPos(ImVec2(viewport->WorkPos.x + viewport->WorkSize.x - 16.0f, viewport->WorkPos.y + 52.0f),
+                            ImGuiCond_Always, ImVec2(1.0f, 0.0f));
+
+    ImGui::Begin("Player HUD", nullptr,
+                 ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoInputs |
+                     ImGuiWindowFlags_NoNav);
+
+    ImGui::TextColored(camera.thirdPerson ? ImVec4(0.95f, 0.72f, 0.30f, 1.0f) : ImVec4(0.35f, 0.95f, 0.60f, 1.0f), "%s",
+                       camera.thirdPerson ? "THIRD-PERSON" : "FIRST-PERSON");
+
+    ImGui::Separator();
+    ImGui::Text("X %+07.1f", camera.position.x);
+    ImGui::Text("Y %+07.1f", camera.position.y);
+    ImGui::Text("Z %+07.1f", camera.position.z);
+
+    ImGui::Text("Yaw %6.1f", camera.yaw);
+    ImGui::Text("Pitch %5.1f", camera.pitch);
+    ImGui::Text("Speed %.1f", camera.movementSpeed);
+
+    ImGui::Separator();
+    if (insideWorld)
+        ImGui::Text("Chunk [%d, %d]", chunkX, chunkZ);
+    else
+        ImGui::TextColored(ImVec4(1.0f, 0.45f, 0.40f, 1.0f), "Outside world");
+    ImGui::End();
+
     ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode);
+
+    const ImVec2 crosshairCenter(viewport->WorkPos.x + viewport->WorkSize.x * 0.5f,
+                                 viewport->WorkPos.y + viewport->WorkSize.y * 0.5f);
+
+    auto* draw = ImGui::GetForegroundDrawList();
+    draw->AddLine({crosshairCenter.x - 8, crosshairCenter.y}, {crosshairCenter.x + 8, crosshairCenter.y},
+                  IM_COL32_WHITE, 1.5f);
+    draw->AddLine({crosshairCenter.x, crosshairCenter.y - 8}, {crosshairCenter.x, crosshairCenter.y + 8},
+                  IM_COL32_WHITE, 1.5f);
 
     // 1. Zwarty panel kontrolny z zakładkami
     ImGui::SetNextWindowSize(ImVec2(380, 450), ImGuiCond_FirstUseEver);
@@ -242,11 +289,12 @@ void ImGuiLayer::draw(Camera& camera, float& timeOfDay, bool& manualTime, float&
             ImGui::EndTabItem();
         }
 
+        float ms = ImGui::GetIO().DeltaTime * 1000.0f;
+        m_frameTimes[m_frameOffset] = ms;
+        m_frameOffset = (m_frameOffset + 1) % FRAME_HISTORY;
+
         // Zakładka Wydajności
         if (ImGui::BeginTabItem("Performance")) {
-            float ms = ImGui::GetIO().DeltaTime * 1000.0f;
-            m_frameTimes[m_frameOffset] = ms;
-            m_frameOffset = (m_frameOffset + 1) % FRAME_HISTORY;
 
             ImGui::Text("Average: %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate,
                         ImGui::GetIO().Framerate);
@@ -265,26 +313,28 @@ void ImGuiLayer::draw(Camera& camera, float& timeOfDay, bool& manualTime, float&
             ImGui::Text("CPU Time: %.3f ms", stats.cpuTimeMs);
             ImGui::Text("GPU Time: %.3f ms", stats.gpuTimeMs);
             ImGui::Spacing();
+            ImGui::TextDisabled("Last submitted frame");
 
             if (ImGui::BeginTable("StatsTable", 2, ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_RowBg)) {
                 ImGui::TableNextRow();
                 ImGui::TableSetColumnIndex(0);
-                ImGui::Text("Vertices");
+                ImGui::TextUnformatted("Terrain chunks");
                 ImGui::TableSetColumnIndex(1);
-                ImGui::Text("%s", groupThousands(stats.vertices).c_str());
+                ImGui::Text("%s / %s", groupThousands(stats.terrainChunksDrawn).c_str(),
+                            groupThousands(stats.terrainChunksTotal).c_str());
 
                 ImGui::TableNextRow();
                 ImGui::TableSetColumnIndex(0);
-                ImGui::Text("Indices");
+                ImGui::TextUnformatted("Water chunks");
                 ImGui::TableSetColumnIndex(1);
-                ImGui::Text("%s", groupThousands(stats.indices).c_str());
+                ImGui::Text("%s / %s", groupThousands(stats.waterChunksDrawn).c_str(),
+                            groupThousands(stats.waterChunksTotal).c_str());
 
                 ImGui::TableNextRow();
                 ImGui::TableSetColumnIndex(0);
-                ImGui::Text("Draw calls");
+                ImGui::TextUnformatted("Scene draw calls");
                 ImGui::TableSetColumnIndex(1);
-                ImGui::Text("%u", stats.drawCalls);
-
+                ImGui::Text("%s", groupThousands(stats.sceneDrawCalls).c_str());
                 ImGui::EndTable();
             }
             ImGui::EndTabItem();
