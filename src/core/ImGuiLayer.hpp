@@ -37,4 +37,8 @@ class ImGuiLayer {
     static constexpr int FRAME_HISTORY = 90;
     float m_frameTimes[FRAME_HISTORY] = {};
     int m_frameOffset = 0;
+
+    bool m_showPlayerHud = true;
+    bool m_showCrosshair = true;
+    bool m_showOrientationGizmo = true;
 };

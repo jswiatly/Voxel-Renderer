@@ -197,6 +197,14 @@ void ImGuiLayer::draw(Camera& camera, float& timeOfDay, bool& manualTime, float&
                 regenerate = true;
             ImGui::EndMenu();
         }
+
+        if (ImGui::BeginMenu("View")) {
+            ImGui::MenuItem("Player HUD", nullptr, &m_showPlayerHud);
+            ImGui::MenuItem("Crosshair", nullptr, &m_showCrosshair);
+            ImGui::MenuItem("3D Orientation", nullptr, &m_showOrientationGizmo);
+            ImGui::EndMenu();
+        }
+
         ImGui::EndMainMenuBar();
     }
 
@@ -208,44 +216,51 @@ void ImGuiLayer::draw(Camera& camera, float& timeOfDay, bool& manualTime, float&
     const bool insideWorld = chunkX >= 0 && chunkX < chunksPerAxis && chunkZ >= 0 && chunkZ < chunksPerAxis;
 
     const ImGuiViewport* viewport = ImGui::GetMainViewport();
-    ImGui::SetNextWindowBgAlpha(0.55f);
 
-    ImGui::SetNextWindowPos(ImVec2(viewport->WorkPos.x + viewport->WorkSize.x - 16.0f, viewport->WorkPos.y + 52.0f),
-                            ImGuiCond_Always, ImVec2(1.0f, 0.0f));
+    if (m_showPlayerHud) {
+        ImGui::SetNextWindowBgAlpha(0.55f);
+        ImGui::SetNextWindowPos(ImVec2(viewport->WorkPos.x + viewport->WorkSize.x - 16.0f, viewport->WorkPos.y + 52.0f),
+                                ImGuiCond_Always, ImVec2(1.0f, 0.0f));
 
-    ImGui::Begin("Player HUD", nullptr,
-                 ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoInputs |
-                     ImGuiWindowFlags_NoNav);
+        ImGui::Begin("Player HUD", nullptr,
+                     ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoInputs |
+                         ImGuiWindowFlags_NoNav);
 
-    ImGui::TextColored(camera.thirdPerson ? ImVec4(0.95f, 0.72f, 0.30f, 1.0f) : ImVec4(0.35f, 0.95f, 0.60f, 1.0f), "%s",
-                       camera.thirdPerson ? "THIRD-PERSON" : "FIRST-PERSON");
+        ImGui::TextColored(camera.thirdPerson ? ImVec4(0.95f, 0.72f, 0.30f, 1.0f) : ImVec4(0.35f, 0.95f, 0.60f, 1.0f),
+                           "%s", camera.thirdPerson ? "THIRD-PERSON" : "FIRST-PERSON");
 
-    ImGui::Separator();
-    ImGui::Text("X %+07.1f", camera.position.x);
-    ImGui::Text("Y %+07.1f", camera.position.y);
-    ImGui::Text("Z %+07.1f", camera.position.z);
+        ImGui::Separator();
+        ImGui::Text("X %+07.1f", camera.position.x);
+        ImGui::Text("Y %+07.1f", camera.position.y);
+        ImGui::Text("Z %+07.1f", camera.position.z);
 
-    ImGui::Text("Yaw %6.1f", camera.yaw);
-    ImGui::Text("Pitch %5.1f", camera.pitch);
-    ImGui::Text("Speed %.1f", camera.movementSpeed);
+        ImGui::Text("Yaw %6.1f", camera.yaw);
+        ImGui::Text("Pitch %5.1f", camera.pitch);
+        ImGui::Text("Speed %.1f", camera.movementSpeed);
 
-    ImGui::Separator();
-    if (insideWorld)
-        ImGui::Text("Chunk [%d, %d]", chunkX, chunkZ);
-    else
-        ImGui::TextColored(ImVec4(1.0f, 0.45f, 0.40f, 1.0f), "Outside world");
-    ImGui::End();
+        ImGui::Separator();
+        if (insideWorld)
+            ImGui::Text("Chunk [%d, %d]", chunkX, chunkZ);
+        else
+            ImGui::TextColored(ImVec4(1.0f, 0.45f, 0.40f, 1.0f), "Outside world");
+
+        ImGui::End();
+    }
 
     ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode);
 
-    const ImVec2 crosshairCenter(viewport->WorkPos.x + viewport->WorkSize.x * 0.5f,
-                                 viewport->WorkPos.y + viewport->WorkSize.y * 0.5f);
+    if (m_showCrosshair) {
+        const ImVec2 crosshairCenter(viewport->WorkPos.x + viewport->WorkSize.x * 0.5f,
+                                     viewport->WorkPos.y + viewport->WorkSize.y * 0.5f);
 
-    auto* draw = ImGui::GetForegroundDrawList();
-    draw->AddLine({crosshairCenter.x - 8, crosshairCenter.y}, {crosshairCenter.x + 8, crosshairCenter.y},
-                  IM_COL32_WHITE, 1.5f);
-    draw->AddLine({crosshairCenter.x, crosshairCenter.y - 8}, {crosshairCenter.x, crosshairCenter.y + 8},
-                  IM_COL32_WHITE, 1.5f);
+        ImDrawList* draw = ImGui::GetForegroundDrawList();
+
+        draw->AddLine({crosshairCenter.x - 8, crosshairCenter.y}, {crosshairCenter.x + 8, crosshairCenter.y},
+                      IM_COL32_WHITE, 1.5f);
+
+        draw->AddLine({crosshairCenter.x, crosshairCenter.y - 8}, {crosshairCenter.x, crosshairCenter.y + 8},
+                      IM_COL32_WHITE, 1.5f);
+    }
 
     // 1. Zwarty panel kontrolny z zakładkami
     ImGui::SetNextWindowSize(ImVec2(380, 450), ImGuiCond_FirstUseEver);
@@ -313,30 +328,33 @@ void ImGuiLayer::draw(Camera& camera, float& timeOfDay, bool& manualTime, float&
             ImGui::Text("CPU Time: %.3f ms", stats.cpuTimeMs);
             ImGui::Text("GPU Time: %.3f ms", stats.gpuTimeMs);
             ImGui::Spacing();
-            ImGui::TextDisabled("Last submitted frame");
 
-            if (ImGui::BeginTable("StatsTable", 2, ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_RowBg)) {
-                ImGui::TableNextRow();
-                ImGui::TableSetColumnIndex(0);
-                ImGui::TextUnformatted("Terrain chunks");
-                ImGui::TableSetColumnIndex(1);
-                ImGui::Text("%s / %s", groupThousands(stats.terrainChunksDrawn).c_str(),
-                            groupThousands(stats.terrainChunksTotal).c_str());
+            ImVec4 frameColor = ImVec4(0.20f, 0.80f, 0.30f, 1.0f);
+            if (ms > 16.6f)
+                frameColor = ImVec4(0.80f, 0.80f, 0.20f, 1.0f);
+            if (ms > 33.3f)
+                frameColor = ImVec4(0.90f, 0.20f, 0.20f, 1.0f);
 
-                ImGui::TableNextRow();
-                ImGui::TableSetColumnIndex(0);
-                ImGui::TextUnformatted("Water chunks");
-                ImGui::TableSetColumnIndex(1);
-                ImGui::Text("%s / %s", groupThousands(stats.waterChunksDrawn).c_str(),
-                            groupThousands(stats.waterChunksTotal).c_str());
+            ImGui::TextColored(frameColor, "Frame: %.2f ms", ms);
+            ImGui::SameLine();
+            ImGui::TextDisabled("(target: 16.67 ms)");
 
-                ImGui::TableNextRow();
-                ImGui::TableSetColumnIndex(0);
-                ImGui::TextUnformatted("Scene draw calls");
-                ImGui::TableSetColumnIndex(1);
-                ImGui::Text("%s", groupThousands(stats.sceneDrawCalls).c_str());
-                ImGui::EndTable();
-            }
+            ImGui::TextDisabled("Last submitted scene");
+
+            const auto drawChunkBar = [](const char* label, uint32_t drawn, uint32_t total) {
+                const float fraction = total == 0 ? 0.0f : static_cast<float>(drawn) / total;
+                const std::string overlay = groupThousands(drawn) + " / " + groupThousands(total);
+
+                ImGui::TextUnformatted(label);
+                ImGui::ProgressBar(fraction, ImVec2(-1.0f, 0.0f), overlay.c_str());
+            };
+
+            drawChunkBar("Terrain chunks drawn", stats.terrainChunksDrawn, stats.terrainChunksTotal);
+            drawChunkBar("Water chunks drawn", stats.waterChunksDrawn, stats.waterChunksTotal);
+
+            ImGui::Spacing();
+            ImGui::Separator();
+            ImGui::Text("Scene draw calls: %s", groupThousands(stats.sceneDrawCalls).c_str());
             ImGui::EndTabItem();
         }
         ImGui::EndTabBar();
@@ -344,60 +362,71 @@ void ImGuiLayer::draw(Camera& camera, float& timeOfDay, bool& manualTime, float&
     ImGui::End(); // Koniec panelu głównego
 
     // 2. Nienaprzykrzający się HUD z orientacją 3D
-    ImGuiWindowFlags overlayFlags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_AlwaysAutoResize |
-                                    ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_NoFocusOnAppearing |
-                                    ImGuiWindowFlags_NoNav;
+    if (m_showOrientationGizmo) {
+        ImGuiWindowFlags overlayFlags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_AlwaysAutoResize |
+                                        ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_NoFocusOnAppearing |
+                                        ImGuiWindowFlags_NoNav;
 
-    ImGui::SetNextWindowBgAlpha(0.35f); // Półprzezroczyste tło
-    ImGui::Begin("3D Orientation", nullptr, overlayFlags);
+        ImGui::SetNextWindowBgAlpha(0.35f);
+        ImGui::Begin("3D Orientation", nullptr, overlayFlags);
 
-    ImDrawList* draw_list = ImGui::GetWindowDrawList();
-    ImVec2 p = ImGui::GetCursorScreenPos();
-    float size = 120.0f;
-    float axis_length = 45.0f;
-    ImVec2 center = ImVec2(p.x + size / 2.0f, p.y + size / 2.0f);
+        ImDrawList* draw_list = ImGui::GetWindowDrawList();
+        ImVec2 p = ImGui::GetCursorScreenPos();
+        float size = 120.0f;
+        float axis_length = 45.0f;
+        ImVec2 center(p.x + size / 2.0f, p.y + size / 2.0f);
 
-    draw_list->AddCircleFilled(center, axis_length + 15.0f, IM_COL32(20, 20, 20, 150));
-    glm::mat4 view = glm::mat4(1.0f);
-    view = glm::rotate(view, glm::radians(camera.pitch), glm::vec3(1.0f, 0.0f, 0.0f));
-    view = glm::rotate(view, glm::radians(camera.yaw), glm::vec3(0.0f, 1.0f, 0.0f));
+        draw_list->AddCircleFilled(center, axis_length + 15.0f, IM_COL32(20, 20, 20, 150));
 
-    struct Axis {
-        glm::vec3 world_dir;
-        ImU32 color;
-        const char* label;
-        glm::vec2 screen_pos;
-        float depth;
-    };
+        glm::mat4 view(1.0f);
+        view = glm::rotate(view, glm::radians(camera.pitch), glm::vec3(1.0f, 0.0f, 0.0f));
+        view = glm::rotate(view, glm::radians(camera.yaw), glm::vec3(0.0f, 1.0f, 0.0f));
 
-    Axis axes[3] = {{glm::vec3(1.0f, 0.0f, 0.0f), IM_COL32(255, 50, 50, 255), "X"},
-                    {glm::vec3(0.0f, 1.0f, 0.0f), IM_COL32(50, 255, 50, 255), "Y"},
-                    {glm::vec3(0.0f, 0.0f, 1.0f), IM_COL32(50, 100, 255, 255), "Z"}};
+        struct Axis {
+            glm::vec3 world_dir;
+            ImU32 color;
+            const char* label;
+            glm::vec2 screen_pos;
+            float depth;
+        };
 
-    for (int i = 0; i < 3; i++) {
-        glm::vec4 view_dir = view * glm::vec4(axes[i].world_dir, 0.0f);
-        axes[i].screen_pos = glm::vec2(center.x + view_dir.x * axis_length, center.y - view_dir.y * axis_length);
-        axes[i].depth = view_dir.z;
-    }
+        Axis axes[3] = {
+            {glm::vec3(1.0f, 0.0f, 0.0f), IM_COL32(255, 50, 50, 255), "X"},
+            {glm::vec3(0.0f, 1.0f, 0.0f), IM_COL32(50, 255, 50, 255), "Y"},
+            {glm::vec3(0.0f, 0.0f, 1.0f), IM_COL32(50, 100, 255, 255), "Z"},
+        };
 
-    std::sort(std::begin(axes), std::end(axes), [](const Axis& a, const Axis& b) { return a.depth < b.depth; });
-    for (int i = 0; i < 3; i++) {
-        ImVec2 end_pos = ImVec2(axes[i].screen_pos.x, axes[i].screen_pos.y);
-        float thickness = (axes[i].depth > 0.0f) ? 3.5f : 1.5f;
-        draw_list->AddLine(center, end_pos, axes[i].color, thickness);
-        ImVec2 text_size = ImGui::CalcTextSize(axes[i].label);
-        glm::vec2 dir_norm = glm::normalize(axes[i].screen_pos - glm::vec2(center.x, center.y));
-        ImVec2 text_pos = ImVec2(end_pos.x + dir_norm.x * 12.0f - text_size.x / 2.0f,
-                                 end_pos.y + dir_norm.y * 12.0f - text_size.y / 2.0f);
-        ImU32 text_color = axes[i].color;
-        if (axes[i].depth < 0.0f) {
-            text_color = (text_color & 0x00FFFFFF) | 0x80000000;
+        for (Axis& axis : axes) {
+            const glm::vec4 viewDir = view * glm::vec4(axis.world_dir, 0.0f);
+
+            axis.screen_pos = glm::vec2(center.x + viewDir.x * axis_length, center.y - viewDir.y * axis_length);
+            axis.depth = viewDir.z;
         }
-        ImVec2 shadow_pos = ImVec2(text_pos.x + 1.0f, text_pos.y + 1.0f);
-        draw_list->AddText(shadow_pos, IM_COL32(0, 0, 0, 255), axes[i].label);
-        draw_list->AddText(text_pos, text_color, axes[i].label);
+
+        std::sort(std::begin(axes), std::end(axes), [](const Axis& a, const Axis& b) { return a.depth < b.depth; });
+
+        for (const Axis& axis : axes) {
+            const ImVec2 endPos(axis.screen_pos.x, axis.screen_pos.y);
+            const float thickness = axis.depth > 0.0f ? 3.5f : 1.5f;
+
+            draw_list->AddLine(center, endPos, axis.color, thickness);
+
+            const ImVec2 textSize = ImGui::CalcTextSize(axis.label);
+            const glm::vec2 direction = glm::normalize(axis.screen_pos - glm::vec2(center.x, center.y));
+
+            const ImVec2 textPos(endPos.x + direction.x * 12.0f - textSize.x / 2.0f,
+                                 endPos.y + direction.y * 12.0f - textSize.y / 2.0f);
+
+            ImU32 textColor = axis.color;
+            if (axis.depth < 0.0f)
+                textColor = (textColor & 0x00FFFFFF) | 0x80000000;
+
+            draw_list->AddText(ImVec2(textPos.x + 1.0f, textPos.y + 1.0f), IM_COL32(0, 0, 0, 255), axis.label);
+            draw_list->AddText(textPos, textColor, axis.label);
+        }
+
+        draw_list->AddCircleFilled(center, 3.0f, IM_COL32_WHITE);
+        ImGui::Dummy(ImVec2(size, size));
+        ImGui::End();
     }
-    draw_list->AddCircleFilled(center, 3.0f, IM_COL32(255, 255, 255, 255));
-    ImGui::Dummy(ImVec2(size, size));
-    ImGui::End();
 }
