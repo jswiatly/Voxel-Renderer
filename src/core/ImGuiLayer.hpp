@@ -34,9 +34,12 @@ class ImGuiLayer {
     VulkanContext* m_ctx = nullptr;
     VkDescriptorPool m_pool = VK_NULL_HANDLE;
 
-    static constexpr int FRAME_HISTORY = 90;
+    static constexpr int FRAME_HISTORY = 240;
     float m_frameTimes[FRAME_HISTORY] = {};
+    float m_cpuTimes[FRAME_HISTORY] = {};
+    float m_gpuTimes[FRAME_HISTORY] = {};
     int m_frameOffset = 0;
+    int m_frameSampleCount = 0;
 
     bool m_showPlayerHud = true;
     bool m_showCrosshair = true;

@@ -249,6 +249,17 @@ void ImGuiLayer::draw(Camera& camera, float& timeOfDay, bool& manualTime, float&
 
     ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode);
 
+    const float ms = ImGui::GetIO().DeltaTime * 1000.0f;
+
+    const int sampleIndex = m_frameOffset;
+
+    m_frameTimes[sampleIndex] = ms;
+    m_cpuTimes[sampleIndex] = stats.cpuTimeMs;
+    m_gpuTimes[sampleIndex] = stats.gpuTimeMs;
+
+    m_frameOffset = (m_frameOffset + 1) % FRAME_HISTORY;
+    m_frameSampleCount = std::min(m_frameSampleCount + 1, FRAME_HISTORY);
+
     if (m_showCrosshair) {
         const ImVec2 crosshairCenter(viewport->WorkPos.x + viewport->WorkSize.x * 0.5f,
                                      viewport->WorkPos.y + viewport->WorkSize.y * 0.5f);
@@ -304,12 +315,69 @@ void ImGuiLayer::draw(Camera& camera, float& timeOfDay, bool& manualTime, float&
             ImGui::EndTabItem();
         }
 
-        float ms = ImGui::GetIO().DeltaTime * 1000.0f;
-        m_frameTimes[m_frameOffset] = ms;
-        m_frameOffset = (m_frameOffset + 1) % FRAME_HISTORY;
-
         // Zakładka Wydajności
         if (ImGui::BeginTabItem("Performance")) {
+            std::array<float, FRAME_HISTORY> sortedSamples{};
+            std::copy_n(m_frameTimes, m_frameSampleCount, sortedSamples.begin());
+
+            std::sort(sortedSamples.begin(), sortedSamples.begin() + m_frameSampleCount);
+
+            const int p95Index = std::max(0, static_cast<int>(std::ceil(m_frameSampleCount * 0.95f)) - 1);
+
+            const float p95 = sortedSamples[p95Index];
+
+            ImVec4 frameColor(0.20f, 0.80f, 0.30f, 1.0f);
+            if (ms > 16.6f)
+                frameColor = ImVec4(0.80f, 0.80f, 0.20f, 1.0f);
+            if (ms > 33.3f)
+                frameColor = ImVec4(0.90f, 0.20f, 0.20f, 1.0f);
+
+            if (ImGui::BeginTable("PerformanceMetrics", 3, ImGuiTableFlags_SizingStretchSame)) {
+                ImGui::TableNextRow();
+
+                ImGui::TableNextColumn();
+                ImGui::TextDisabled("FPS");
+                ImGui::TextColored(frameColor, "%.1f", ImGui::GetIO().Framerate);
+
+                ImGui::TableNextColumn();
+                ImGui::TextDisabled("FRAME");
+                ImGui::TextColored(frameColor, "%.2f ms", ms);
+
+                ImGui::TableNextColumn();
+                ImGui::TextDisabled("P95 / 240");
+                ImGui::TextColored(frameColor, "%.2f ms", p95);
+
+                ImGui::EndTable();
+            }
+
+            ImGui::Separator();
+
+            constexpr float targetFrameMs = 16.67f;
+
+            const auto budgetColor = [](float value) {
+                if (value > 33.3f)
+                    return ImVec4(0.90f, 0.20f, 0.20f, 1.0f);
+                if (value > 16.6f)
+                    return ImVec4(0.80f, 0.80f, 0.20f, 1.0f);
+
+                return ImVec4(0.20f, 0.80f, 0.30f, 1.0f);
+            };
+
+            const auto drawBudgetBar = [targetFrameMs, &budgetColor](const char* label, float valueMs) {
+                const float fill = std::clamp(valueMs / targetFrameMs, 0.0f, 1.0f);
+
+                ImGui::Text("%s: %.2f / %.2f ms", label, valueMs, targetFrameMs);
+
+                ImGui::PushStyleColor(ImGuiCol_PlotHistogram, budgetColor(valueMs));
+
+                ImGui::ProgressBar(fill, ImVec2(-1.0f, 0.0f));
+                ImGui::PopStyleColor();
+            };
+
+            drawBudgetBar("Frame budget", ms);
+            drawBudgetBar("GPU budget", stats.gpuTimeMs);
+
+            ImGui::Separator();
 
             ImGui::Text("Average: %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate,
                         ImGui::GetIO().Framerate);
@@ -320,26 +388,78 @@ void ImGuiLayer::draw(Camera& camera, float& timeOfDay, bool& manualTime, float&
             if (ms > 33.3f)
                 histColor = ImVec4(0.90f, 0.20f, 0.20f, 1.0f);
 
-            ImGui::PushStyleColor(ImGuiCol_PlotHistogram, histColor);
-            ImGui::PlotHistogram("##frametime", m_frameTimes, FRAME_HISTORY, m_frameOffset, nullptr, 0.0f, FLT_MAX,
-                                 ImVec2(0, 50));
-            ImGui::PopStyleColor();
-
-            ImGui::Text("CPU Time: %.3f ms", stats.cpuTimeMs);
-            ImGui::Text("GPU Time: %.3f ms", stats.gpuTimeMs);
-            ImGui::Spacing();
-
-            ImVec4 frameColor = ImVec4(0.20f, 0.80f, 0.30f, 1.0f);
-            if (ms > 16.6f)
-                frameColor = ImVec4(0.80f, 0.80f, 0.20f, 1.0f);
-            if (ms > 33.3f)
-                frameColor = ImVec4(0.90f, 0.20f, 0.20f, 1.0f);
-
-            ImGui::TextColored(frameColor, "Frame: %.2f ms", ms);
+            ImGui::TextColored(ImVec4(0.20f, 0.80f, 0.30f, 1.0f), "Frame");
             ImGui::SameLine();
-            ImGui::TextDisabled("(target: 16.67 ms)");
 
-            ImGui::TextDisabled("Last submitted scene");
+            ImGui::TextColored(ImVec4(0.45f, 0.75f, 1.00f, 1.0f), "CPU");
+            ImGui::SameLine();
+
+            ImGui::TextColored(ImVec4(1.00f, 0.70f, 0.25f, 1.0f), "GPU");
+            ImGui::SameLine();
+
+            ImGui::TextDisabled("(last 240 samples)");
+
+            const int historyCount = m_frameSampleCount;
+            const int historyOffset = historyCount == FRAME_HISTORY ? m_frameOffset : 0;
+
+            const float maxGraphMs = 50.0f;
+
+            const ImVec2 graphPos = ImGui::GetCursorScreenPos();
+            const ImVec2 graphSize(ImGui::GetContentRegionAvail().x, 120.0f);
+
+            const ImVec2 graphMax(graphPos.x + graphSize.x, graphPos.y + graphSize.y);
+
+            ImGui::InvisibleButton("##timing-history", graphSize);
+
+            ImDrawList* graph = ImGui::GetWindowDrawList();
+
+            graph->AddRectFilled(graphPos, graphMax, IM_COL32(5, 20, 25, 180));
+
+            graph->AddRect(graphPos, graphMax, IM_COL32(35, 100, 110, 180));
+
+            const auto drawTargetLine = [&](float targetMs, const char* label) {
+                const float y = graphMax.y - (targetMs / maxGraphMs) * graphSize.y;
+
+                graph->AddLine(ImVec2(graphPos.x, y), ImVec2(graphMax.x, y), IM_COL32(230, 200, 90, 150), 1.0f);
+
+                graph->AddText(ImVec2(graphPos.x + 4.0f, y - 14.0f), IM_COL32(230, 200, 90, 220), label);
+            };
+
+            drawTargetLine(16.67f, "16.7 ms");
+            drawTargetLine(33.3f, "33.3 ms");
+
+            const auto toPoint = [&](int sample, float value) {
+                const float x =
+                    graphPos.x + (static_cast<float>(sample) / static_cast<float>(historyCount - 1)) * graphSize.x;
+
+                const float clamped = std::clamp(value, 0.0f, maxGraphMs);
+
+                const float y = graphMax.y - (clamped / maxGraphMs) * graphSize.y;
+
+                return ImVec2(x, y);
+            };
+
+            const auto drawSeries = [&](const float* values, ImU32 color) {
+                if (historyCount < 2)
+                    return;
+
+                for (int i = 1; i < historyCount; ++i) {
+                    const int previousIndex = (historyOffset + i - 1) % FRAME_HISTORY;
+
+                    const int currentIndex = (historyOffset + i) % FRAME_HISTORY;
+
+                    graph->AddLine(toPoint(i - 1, values[previousIndex]), toPoint(i, values[currentIndex]), color,
+                                   2.0f);
+                }
+            };
+
+            drawSeries(m_frameTimes, IM_COL32(60, 220, 130, 255));
+
+            drawSeries(m_cpuTimes, IM_COL32(100, 175, 255, 255));
+
+            drawSeries(m_gpuTimes, IM_COL32(255, 180, 65, 255));
+
+            ImGui::Spacing();
 
             const auto drawChunkBar = [](const char* label, uint32_t drawn, uint32_t total) {
                 const float fraction = total == 0 ? 0.0f : static_cast<float>(drawn) / total;
