@@ -31,8 +31,21 @@ FetchContent_Declare(VulkanMemoryAllocator
     GIT_REPOSITORY https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator.git
     GIT_TAG        v3.4.0
 )
+# The Tracy GUI you connect with must be built from the same version as this tag.
+FetchContent_Declare(tracy
+    GIT_REPOSITORY https://github.com/wolfpld/tracy.git
+    GIT_TAG        v0.14.1
+    GIT_SHALLOW    TRUE
+)
 
-FetchContent_MakeAvailable(glfw glm imgui VulkanMemoryAllocator)
+# Tracy's own CMake defaults TRACY_ENABLE to OFF, in which case every Zone*/TracyVk* macro
+# compiles to nothing. Configure with -DVOXEL_PROFILING=OFF for a build with zero overhead.
+# TRACY_ON_DEMAND is deliberately left OFF: with it, events emitted before the GUI connects
+# (i.e. the terrain generation at startup) would be dropped.
+option(VOXEL_PROFILING "Build with Tracy profiler instrumentation" ON)
+set(TRACY_ENABLE ${VOXEL_PROFILING} CACHE BOOL "" FORCE)
+
+FetchContent_MakeAvailable(glfw glm imgui VulkanMemoryAllocator tracy)
 
 add_library(imgui STATIC
     ${imgui_SOURCE_DIR}/imgui.cpp
@@ -82,6 +95,7 @@ target_link_libraries(VoxelRenderer PRIVATE
     glm::glm
     imgui
     GPUOpen::VulkanMemoryAllocator
+    Tracy::TracyClient
 )
 
 # ---------------------------------------------------------------------------

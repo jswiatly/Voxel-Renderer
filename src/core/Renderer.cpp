@@ -15,9 +15,18 @@
 #include <cstring>
 #include <stdexcept>
 
+#include <tracy/Tracy.hpp>
+#include <tracy/TracyC.h>
+#include <tracy/TracyVulkan.hpp>
+
+namespace {
+[[maybe_unused]] constexpr uint32_t kWaitZoneColor = 0xB03A2E;
+} // namespace
+
 void Renderer::init(VulkanContext& ctx, Window& window, Swapchain& swapchain, Pipeline& pipeline,
                     std::vector<Mesh>& chunks, ImGuiLayer& imgui, Skybox& skybox, Texture& texture,
                     std::vector<Mesh>& waterChunks, Water& water) {
+    ZoneScoped;
     m_ctx = &ctx;
     m_window = &window;
     m_swapchain = &swapchain;
@@ -39,9 +48,14 @@ void Renderer::init(VulkanContext& ctx, Window& window, Swapchain& swapchain, Pi
     createDescriptorPool();
     createDescriptorSets(pipeline, texture);
     createRenderFinishedSemaphores();
+    m_tracyCtx = TracyVkContext(m_ctx->physicalDevice(), m_ctx->device(), m_ctx->graphicsQueue(), m_commandBuffers[0]);
+    TracyVkContextName(m_tracyCtx, "Graphics queue", sizeof("Graphics queue") - 1);
 }
 
 void Renderer::cleanup() {
+    ZoneScoped;
+    TracyVkDestroy(m_tracyCtx);
+    m_tracyCtx = nullptr;
     VkDevice device = m_ctx->device();
     vkDestroyQueryPool(device, m_queryPool, nullptr);
     for (auto semaphore : m_renderFinishedSemaphores) {
@@ -57,6 +71,7 @@ void Renderer::cleanup() {
 }
 
 void Renderer::createCommandBuffers() {
+    ZoneScoped;
     VkDevice device = m_ctx->device();
     VkCommandPool commandPool = m_ctx->commandPool();
     m_commandBuffers.resize(MAX_FRAMES_IN_FLIGHT);
@@ -73,6 +88,7 @@ void Renderer::createCommandBuffers() {
 }
 
 void Renderer::createSyncObjects() {
+    ZoneScoped;
     VkDevice device = m_ctx->device();
     m_imageAvailableSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
     m_inFlightFences.resize(MAX_FRAMES_IN_FLIGHT);
@@ -93,6 +109,7 @@ void Renderer::createSyncObjects() {
 }
 
 void Renderer::createRenderFinishedSemaphores() {
+    ZoneScoped;
     VkDevice device = m_ctx->device();
     m_renderFinishedSemaphores.resize(m_swapchain->imageCount());
 
@@ -107,6 +124,7 @@ void Renderer::createRenderFinishedSemaphores() {
 }
 
 void Renderer::recreateSwapchain() {
+    ZoneScoped;
     m_swapchain->recreate(*m_window, m_pipeline->renderPass());
 
     for (auto semaphore : m_renderFinishedSemaphores) {
@@ -116,6 +134,7 @@ void Renderer::recreateSwapchain() {
 }
 
 void Renderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex, const glm::vec4& clearColor) {
+    ZoneScoped;
     m_frameStats = {};
     VkCommandBufferBeginInfo beginInfo{};
     beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -166,21 +185,27 @@ void Renderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t image
     vkCmdPushConstants(commandBuffer, m_pipeline->pipelineLayout(), VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4),
                        &identity);
 
-    for (Mesh& mesh : *m_chunks) {
-        float dist = glm::distance(glm::vec2(m_camPos.x, m_camPos.z), glm::vec2(mesh.center().x, mesh.center().z));
-        if (dist > m_renderDistance)
-            continue;
-        VkBuffer vertexBuffers[] = {mesh.vertexBuffer()};
-        VkDeviceSize offsets[] = {0};
-        vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
-        vkCmdBindIndexBuffer(commandBuffer, mesh.indexBuffer(), 0, VK_INDEX_TYPE_UINT32);
+    {
+        ZoneScopedN("Record terrain");
+        TracyVkZone(m_tracyCtx, commandBuffer, "Terrain");
+        for (Mesh& mesh : *m_chunks) {
+            float dist = glm::distance(glm::vec2(m_camPos.x, m_camPos.z), glm::vec2(mesh.center().x, mesh.center().z));
+            if (dist > m_renderDistance)
+                continue;
+            VkBuffer vertexBuffers[] = {mesh.vertexBuffer()};
+            VkDeviceSize offsets[] = {0};
+            vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
+            vkCmdBindIndexBuffer(commandBuffer, mesh.indexBuffer(), 0, VK_INDEX_TYPE_UINT32);
 
-        vkCmdDrawIndexed(commandBuffer, mesh.indexCount(), 1, 0, 0, 0);
-        ++m_frameStats.terrainChunksDrawn;
-        ++m_frameStats.sceneDrawCalls;
+            vkCmdDrawIndexed(commandBuffer, mesh.indexCount(), 1, 0, 0, 0);
+            ++m_frameStats.terrainChunksDrawn;
+            ++m_frameStats.sceneDrawCalls;
+        }
     }
 
     if (m_playerVisible && m_playerMesh) {
+        ZoneScopedN("Record player");
+        TracyVkZone(m_tracyCtx, commandBuffer, "Player");
         const glm::mat4 model = glm::translate(glm::mat4(1.0f), m_playerPos);
         vkCmdPushConstants(commandBuffer, m_pipeline->pipelineLayout(), VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(model),
                            &model);
@@ -193,19 +218,39 @@ void Renderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t image
         ++m_frameStats.sceneDrawCalls;
     }
 
-    m_skybox->record(commandBuffer, m_currentFrame);
-    ++m_frameStats.sceneDrawCalls;
+    {
+        ZoneScopedN("Record skybox");
+        TracyVkZone(m_tracyCtx, commandBuffer, "Skybox");
+        m_skybox->record(commandBuffer, m_currentFrame);
+        ++m_frameStats.sceneDrawCalls;
+    }
     // After the sky, so water at the horizon blends against it rather than
     // against the clear colour.
-    m_frameStats.waterChunksDrawn =
-        m_water->record(commandBuffer, m_currentFrame, *m_waterChunks, m_camPos, m_renderDistance);
+    {
+        ZoneScopedN("Record water");
+        TracyVkZone(m_tracyCtx, commandBuffer, "Water");
+        m_frameStats.waterChunksDrawn =
+            m_water->record(commandBuffer, m_currentFrame, *m_waterChunks, m_camPos, m_renderDistance);
+    }
 
     m_frameStats.sceneDrawCalls += m_frameStats.waterChunksDrawn;
-    m_imgui->renderDrawData(commandBuffer);
+    {
+        ZoneScopedN("Record ImGui");
+        TracyVkZone(m_tracyCtx, commandBuffer, "ImGui");
+        m_imgui->renderDrawData(commandBuffer);
+    }
 
     vkCmdEndRenderPass(commandBuffer);
 
     vkCmdWriteTimestamp(commandBuffer, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, m_queryPool, m_currentFrame * 2 + 1);
+
+    TracyPlot("Terrain chunks drawn", static_cast<int64_t>(m_frameStats.terrainChunksDrawn));
+    TracyPlot("Water chunks drawn", static_cast<int64_t>(m_frameStats.waterChunksDrawn));
+    TracyPlot("Scene draw calls", static_cast<int64_t>(m_frameStats.sceneDrawCalls));
+
+    // Reads back finished GPU zones from earlier frames and resets their queries. Has to sit
+    // outside the render pass and before vkEndCommandBuffer, and must run every frame.
+    TracyVkCollect(m_tracyCtx, commandBuffer);
 
     if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {
         throw std::runtime_error("failed to record command buffer!");
@@ -213,13 +258,20 @@ void Renderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t image
 }
 
 void Renderer::drawFrame(const UniformBufferObject& ubo, const glm::vec4& clearColor) {
+    ZoneScoped;
     VkDevice device = m_ctx->device();
     VkQueue graphicsQueue = m_ctx->graphicsQueue();
     VkQueue presentQueue = m_ctx->presentQueue();
 
-    vkWaitForFences(device, 1, &m_inFlightFences[m_currentFrame], VK_TRUE, UINT64_MAX);
+    {
+        // Blocks until the GPU has finished the frame that used this slot. If this dominates,
+        // the CPU is waiting on the GPU (or on vsync), not doing work.
+        ZoneScopedNC("vkWaitForFences", kWaitZoneColor);
+        vkWaitForFences(device, 1, &m_inFlightFences[m_currentFrame], VK_TRUE, UINT64_MAX);
+    }
 
     if (m_queryValid[m_currentFrame]) {
+        ZoneScopedN("Read GPU timestamps");
         uint64_t timestamps[2] = {0, 0};
         VkResult res = vkGetQueryPoolResults(device, m_queryPool, m_currentFrame * 2, 2, sizeof(timestamps), timestamps,
                                              sizeof(uint64_t), VK_QUERY_RESULT_64_BIT);
@@ -228,12 +280,15 @@ void Renderer::drawFrame(const UniformBufferObject& ubo, const glm::vec4& clearC
         }
     }
     m_queryValid[m_currentFrame] = true;
+    TracyPlot("GPU time ms (own timestamps)", static_cast<double>(m_gpuTimeMs));
 
     m_camPos = glm::vec3(glm::inverse(ubo.view)[3]);
 
     uint32_t imageIndex;
+    TracyCZoneNC(zoneAcquire, "vkAcquireNextImageKHR", kWaitZoneColor, true);
     VkResult result = vkAcquireNextImageKHR(device, m_swapchain->handle(), UINT64_MAX,
                                             m_imageAvailableSemaphores[m_currentFrame], VK_NULL_HANDLE, &imageIndex);
+    TracyCZoneEnd(zoneAcquire);
 
     if (result == VK_ERROR_OUT_OF_DATE_KHR) {
         recreateSwapchain();
@@ -242,13 +297,18 @@ void Renderer::drawFrame(const UniformBufferObject& ubo, const glm::vec4& clearC
         throw std::runtime_error("failed to acquire swap chain image!");
     }
 
-    memcpy(m_uniformMapped[m_currentFrame], &ubo, sizeof(ubo));
-    m_skybox->updateUniforms(m_currentFrame, ubo);
-    m_water->updateUniforms(m_currentFrame, ubo);
+    {
+        ZoneScopedN("Update uniforms");
+        memcpy(m_uniformMapped[m_currentFrame], &ubo, sizeof(ubo));
+        m_skybox->updateUniforms(m_currentFrame, ubo);
+        m_water->updateUniforms(m_currentFrame, ubo);
+    }
 
-    vkResetFences(device, 1, &m_inFlightFences[m_currentFrame]);
-
-    vkResetCommandBuffer(m_commandBuffers[m_currentFrame], 0);
+    {
+        ZoneScopedN("Reset fence + cmd buffer");
+        vkResetFences(device, 1, &m_inFlightFences[m_currentFrame]);
+        vkResetCommandBuffer(m_commandBuffers[m_currentFrame], 0);
+    }
     recordCommandBuffer(m_commandBuffers[m_currentFrame], imageIndex, clearColor);
 
     VkSubmitInfo submitInfo{};
@@ -267,8 +327,11 @@ void Renderer::drawFrame(const UniformBufferObject& ubo, const glm::vec4& clearC
     submitInfo.signalSemaphoreCount = 1;
     submitInfo.pSignalSemaphores = signalSemaphores;
 
-    if (vkQueueSubmit(graphicsQueue, 1, &submitInfo, m_inFlightFences[m_currentFrame]) != VK_SUCCESS) {
-        throw std::runtime_error("failed to submit draw command buffer!");
+    {
+        ZoneScopedN("vkQueueSubmit");
+        if (vkQueueSubmit(graphicsQueue, 1, &submitInfo, m_inFlightFences[m_currentFrame]) != VK_SUCCESS) {
+            throw std::runtime_error("failed to submit draw command buffer!");
+        }
     }
 
     VkPresentInfoKHR presentInfo{};
@@ -281,7 +344,11 @@ void Renderer::drawFrame(const UniformBufferObject& ubo, const glm::vec4& clearC
     presentInfo.pSwapchains = swapChains;
     presentInfo.pImageIndices = &imageIndex;
 
-    result = vkQueuePresentKHR(presentQueue, &presentInfo);
+    {
+        // With vsync on, most of the "missing" frame time usually lands here.
+        ZoneScopedNC("vkQueuePresentKHR", kWaitZoneColor);
+        result = vkQueuePresentKHR(presentQueue, &presentInfo);
+    }
 
     if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || m_window->wasResized()) {
         m_window->resetResizeFlag();
@@ -291,9 +358,11 @@ void Renderer::drawFrame(const UniformBufferObject& ubo, const glm::vec4& clearC
     }
 
     m_currentFrame = (m_currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
+    FrameMark;
 }
 
 void Renderer::createUniformBuffers() {
+    ZoneScoped;
     VmaAllocator allocator = m_ctx->allocator();
     VkDeviceSize bufferSize = sizeof(UniformBufferObject);
 
@@ -313,6 +382,7 @@ void Renderer::createUniformBuffers() {
 }
 
 void Renderer::createDescriptorPool() {
+    ZoneScoped;
     std::array<VkDescriptorPoolSize, 2> poolSizes{};
     poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     poolSizes[0].descriptorCount = MAX_FRAMES_IN_FLIGHT;
@@ -330,6 +400,7 @@ void Renderer::createDescriptorPool() {
 }
 
 void Renderer::createDescriptorSets(Pipeline& pipeline, Texture& texture) {
+    ZoneScoped;
     VkDevice device = m_ctx->device();
     std::vector<VkDescriptorSetLayout> layouts(MAX_FRAMES_IN_FLIGHT, pipeline.descriptorSetLayout());
     VkDescriptorSetAllocateInfo allocInfo{};
@@ -377,6 +448,7 @@ void Renderer::createDescriptorSets(Pipeline& pipeline, Texture& texture) {
 }
 
 void Renderer::createQueryPool() {
+    ZoneScoped;
     VkQueryPoolCreateInfo queryPoolInfo{};
     queryPoolInfo.sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO;
     queryPoolInfo.queryType = VK_QUERY_TYPE_TIMESTAMP;

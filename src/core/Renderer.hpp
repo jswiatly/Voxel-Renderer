@@ -3,6 +3,7 @@
 #include <vulkan/vulkan.h>
 #include <glm/glm.hpp>
 #include <vk_mem_alloc.h>
+#include <tracy/TracyVulkan.hpp>
 
 #include <vector>
 
@@ -83,6 +84,8 @@ class Renderer {
     std::vector<void*> m_uniformMapped;
     VkDescriptorPool m_descriptorPool = VK_NULL_HANDLE;
     std::vector<VkDescriptorSet> m_descriptorSets;
+
+    TracyVkCtx m_tracyCtx = nullptr;
 
     VkQueryPool m_queryPool;
     float m_timestampPeriod = 1.0f;
