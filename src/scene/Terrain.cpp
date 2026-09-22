@@ -8,6 +8,8 @@
 #include <tracy/Tracy.hpp>
 #include <tracy/TracyC.h>
 
+#include "World.hpp"
+
 namespace {
 
 constexpr glm::vec3 FACE_VERTS[6][4] = {
@@ -167,7 +169,7 @@ SurfaceMaterial treeMaterial(uint8_t block, float biome, float jitter) {
 
 } // namespace
 
-std::vector<Chunk> generateChunkedTerrain(const TerrainParams& params) {
+std::vector<Chunk> generateChunkedTerrain(World& world, const TerrainParams& params) {
     ZoneScoped;
     const int SIZE = params.worldSize;
     const int HALF = SIZE / 2;
@@ -272,7 +274,7 @@ std::vector<Chunk> generateChunkedTerrain(const TerrainParams& params) {
 
             for (int y = MIN_Y; y <= h; ++y) {
                 uint8_t block = (h - y < 4) ? BLOCK_DIRT : BLOCK_STONE;
-                voxelMap[(gx * SIZE + gz) * RANGE_Y + (y - MIN_Y)] = block;
+                world.setBlock(gx - HALF, y, gz - HALF, block);
             }
         }
     }
@@ -339,9 +341,9 @@ std::vector<Chunk> generateChunkedTerrain(const TerrainParams& params) {
     auto plant = [&](int gx, int gz, int y, uint8_t block) {
         if (gx < 0 || gx >= SIZE || gz < 0 || gz >= SIZE || y < MIN_Y || y > MAX_Y)
             return;
-        uint8_t& cell = voxelMap[(gx * SIZE + gz) * RANGE_Y + (y - MIN_Y)];
-        if (cell == BLOCK_AIR)
-            cell = block;
+
+        if (world.getBlock(gx - HALF, y, gz - HALF) == BLOCK_AIR)
+            world.setBlock(gx - HALF, y, gz - HALF, block);
     };
 
     TracyCZoneN(zoneTrees, "Trees", true);
@@ -380,14 +382,7 @@ std::vector<Chunk> generateChunkedTerrain(const TerrainParams& params) {
 
     TracyCZoneEnd(zoneTrees);
 
-    auto getVoxel = [&](int x, int y, int z) -> uint8_t {
-        if (y < MIN_Y)
-            return BLOCK_STONE;
-        int gx = x + HALF, gz = z + HALF;
-        if (gx < 0 || gx >= SIZE || gz < 0 || gz >= SIZE || y > MAX_Y)
-            return BLOCK_AIR;
-        return voxelMap[(gx * SIZE + gz) * RANGE_Y + (y - MIN_Y)];
-    };
+    auto getVoxel = [&](int x, int y, int z) -> uint8_t { return world.getBlock(x, y, z); };
 
     auto isSolidAO = [&](int x, int y, int z) { return getVoxel(x, y, z) != BLOCK_AIR; };
 
