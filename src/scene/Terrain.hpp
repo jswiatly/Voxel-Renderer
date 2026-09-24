@@ -2,6 +2,7 @@
 
 #include "renderer/Vertex.hpp"
 #include "scene/TerrainParams.hpp"
+#include "World.hpp"
 #include <cstdint>
 #include <vector>
 
@@ -22,4 +23,4 @@ inline constexpr int CHUNK_SIZE_Z = 16;
 inline constexpr int CHUNK_SIZE_Y = 256;
 inline constexpr int WORLD_SIZE = 1024;
 
-std::vector<Chunk> generateChunkedTerrain(const TerrainParams& params);
+std::vector<Chunk> generateChunkedTerrain(World& world, const TerrainParams& params);

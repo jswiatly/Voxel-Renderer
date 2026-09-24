@@ -18,10 +18,11 @@
 #include "scene/Camera.hpp"
 #include "scene/Skybox.hpp"
 #include "scene/Water.hpp"
+#include "scene/World.hpp"
 
 class Engine {
   public:
-    Engine(int width, int height) : window_(width, height, "Voxel Renderer") {}
+    Engine(int width, int height) : window_(width, height, "Voxel Renderer"), m_world(2048) {}
     void run();
 
   private:
@@ -43,6 +44,7 @@ class Engine {
     Pipeline m_pipeline;
     std::vector<Mesh> m_chunks;
     std::vector<Mesh> m_waterChunks;
+    World m_world;
     ImGuiLayer m_imgui;
     Renderer m_renderer;
     Skybox m_skybox;
