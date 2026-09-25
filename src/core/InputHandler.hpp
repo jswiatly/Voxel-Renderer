@@ -2,6 +2,7 @@
 
 struct GLFWwindow;
 class Camera;
+class PlayerController;
 
 class InputHandler {
   public:

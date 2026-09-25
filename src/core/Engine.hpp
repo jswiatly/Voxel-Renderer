@@ -19,10 +19,12 @@
 #include "scene/Skybox.hpp"
 #include "scene/Water.hpp"
 #include "scene/World.hpp"
+#include "scene/PlayerController.hpp"
 
 class Engine {
   public:
-    Engine(int width, int height) : window_(width, height, "Voxel Renderer"), m_world(2048) {}
+    Engine(int width, int height)
+        : window_(width, height, "Voxel Renderer"), m_world(2048), m_playerController({0.0f, 100.0f, 0.0f}) {}
     void run();
 
   private:
@@ -50,6 +52,7 @@ class Engine {
     Skybox m_skybox;
     Water m_water;
     Mesh m_playerMesh;
+    PlayerController m_playerController;
 
     float m_timeOfDay = 0.0f;
     bool m_manualTime = false;
