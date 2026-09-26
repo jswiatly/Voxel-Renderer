@@ -126,11 +126,15 @@ void Engine::mainLoop() {
                      m_seed, m_worldSize, m_regenerate);
         m_validationLog.drawImGuiWindow();
         m_imgui.render();
-        m_input.process(window_.handle(), camera, time.getDeltaTime());
+        m_input.process(window_.handle(), camera, m_playerController, time.getDeltaTime());
         if (m_regenerate) {
             regenerateTerrain();
             m_regenerate = false;
         }
+
+        m_playerController.update(time.getDeltaTime(), m_world);
+
+        camera.position = m_playerController.getPosition();
 
         glm::mat4 view = camera.getViewMatrix();
         glm::mat4 proj = glm::perspective(

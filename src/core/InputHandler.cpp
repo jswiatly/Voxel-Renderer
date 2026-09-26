@@ -1,5 +1,6 @@
 #include "core/InputHandler.hpp"
 #include "scene/Camera.hpp"
+#include "scene/PlayerController.hpp"
 
 #include <GLFW/glfw3.h>
 #include <imgui.h>
@@ -8,7 +9,7 @@ void InputHandler::init(GLFWwindow* window) {
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 }
 
-void InputHandler::process(GLFWwindow* window, Camera& camera, float dt) {
+void InputHandler::process(GLFWwindow* window, Camera& camera, PlayerController& player, float dt) {
     bool fKeyPressed = glfwGetKey(window, GLFW_KEY_F) == GLFW_PRESS;
     if (fKeyPressed && !m_fKeyWasPressed) {
         m_cursorMode = !m_cursorMode;
@@ -24,15 +25,24 @@ void InputHandler::process(GLFWwindow* window, Camera& camera, float dt) {
     }
     m_f5WasPressed = f5Pressed;
 
+    glm::vec3 forward = camera.front;
+    forward.y = 0.0f;
+    forward = glm::normalize(forward);
+
+    glm::vec3 right = glm::normalize(glm::cross(forward, camera.up));
+
     if (!m_cursorMode) {
         if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
-            camera.processKeyboard(0, dt);
+            player.move(forward, dt);
+
         if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
-            camera.processKeyboard(1, dt);
+            player.move(-forward, dt);
+
         if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
-            camera.processKeyboard(2, dt);
+            player.move(-right, dt);
+
         if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
-            camera.processKeyboard(3, dt);
+            player.move(right, dt);
 
         if (!ImGui::GetIO().WantCaptureMouse) {
             double xpos, ypos;

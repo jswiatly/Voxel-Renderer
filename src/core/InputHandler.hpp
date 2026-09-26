@@ -7,7 +7,7 @@ class PlayerController;
 class InputHandler {
   public:
     void init(GLFWwindow* window);
-    void process(GLFWwindow* window, Camera& camera, float dt);
+    void process(GLFWwindow* window, Camera& camera, PlayerController& player, float dt);
 
   private:
     float m_lastX = 400.0f;
