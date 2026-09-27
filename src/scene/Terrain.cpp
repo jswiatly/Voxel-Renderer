@@ -1,4 +1,5 @@
 #include "scene/Terrain.hpp"
+#include <iostream>
 
 #include <cmath>
 #include <vector>
@@ -266,6 +267,9 @@ std::vector<Chunk> generateChunkedTerrain(World& world, const TerrainParams& par
 
             float hf = glm::mix(seabed, lowland, land) + sel * mountains * 110.0f * land;
             int h = SEA + static_cast<int>(std::floor(hf));
+            if (x == 0 && z == 0) {
+                std::cout << "SPAWN TERRAIN HEIGHT = " << h << '\n';
+            }
 
             columnHeight[gx * SIZE + gz] = h;
             columnBiome[gx * SIZE + gz] =

@@ -17,6 +17,7 @@
 
 #include "scene/PlayerBlock.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <fstream>
 #include <iostream>
@@ -126,13 +127,22 @@ void Engine::mainLoop() {
                      m_seed, m_worldSize, m_regenerate);
         m_validationLog.drawImGuiWindow();
         m_imgui.render();
-        m_input.process(window_.handle(), camera, m_playerController, time.getDeltaTime());
+
+        // Clamp dt so a hitch (e.g. the synchronous terrain generation/regeneration below,
+        // which can stall the main thread for a while) doesn't turn into one gigantic physics
+        // step. An unclamped dt let gravity move the player far enough in a single frame to
+        // tunnel past the whole world and land on World::getBlock()'s "always solid below
+        // MIN_Y" bedrock fallback, teleporting the player to a wildly negative Y.
+        constexpr float MAX_FRAME_DT = 0.1f; // seconds
+        const float dt = std::min(time.getDeltaTime(), MAX_FRAME_DT);
+
+        m_input.process(window_.handle(), camera, m_playerController, dt);
         if (m_regenerate) {
             regenerateTerrain();
             m_regenerate = false;
         }
 
-        m_playerController.update(time.getDeltaTime(), m_world);
+        m_playerController.update(dt, m_world);
 
         camera.position = m_playerController.getPosition();
 

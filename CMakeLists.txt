@@ -86,6 +86,7 @@ add_executable(VoxelRenderer
     src/scene/Water.cpp
     src/scene/PlayerBlock.cpp
     src/scene/World.cpp
+    src/scene/PlayerController.cpp
 )
 
 target_include_directories(VoxelRenderer PRIVATE src)
