@@ -12,7 +12,7 @@
 ## Mechanics & Debugging
 - [ ] **Raycasting** - Accurate block targeting for camera/mouse.
 - [ ] **Terrain Modification** - Add/remove voxels with async chunk remeshing.
-- [ ] **Collision Detection**
+- [ ] **Collision Detection** - WIP
 - [V] **Debug UI**
 - [ ] **Cleanup**
 - [ ] **CodeReview**
