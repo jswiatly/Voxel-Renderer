@@ -247,7 +247,7 @@ std::vector<Chunk> generateChunkedTerrain(World& world, const TerrainParams& par
             int x = gx - HALF;
             int z = gz - HALF;
             float fx = float(x), fz = float(z);
-
+            /*
             float wx =
                 (fbm((fx + 1000.f) * params.warpFreq, (fz + 1000.f) * params.warpFreq) - 0.5f) * params.warpStrength;
             float wz =
@@ -267,6 +267,19 @@ std::vector<Chunk> generateChunkedTerrain(World& world, const TerrainParams& par
 
             float hf = glm::mix(seabed, lowland, land) + sel * mountains * 110.0f * land;
             int h = SEA + static_cast<int>(std::floor(hf));
+            */
+
+            float base = fbm(fx * params.baseFrequency, fz * params.baseFrequency);
+
+            float hills = fbm(fx * params.hillFrequency, fz * params.hillFrequency);
+
+            float detail = fbm(fx * params.detailFrequency, fz * params.detailFrequency);
+
+            float hf = params.seaLevel + (base - 0.5f) * params.baseAmplitude + (hills - 0.5f) * params.hillAmplitude +
+                       (detail - 0.5f) * params.detailAmplitude;
+
+            int h = static_cast<int>(std::floor(hf));
+
             if (x == 0 && z == 0) {
                 std::cout << "SPAWN TERRAIN HEIGHT = " << h << '\n';
             }
