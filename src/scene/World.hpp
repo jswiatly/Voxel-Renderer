@@ -17,6 +17,8 @@ class World {
 
     void setBlock(int x, int y, int z, uint8_t block);
 
+    void clear();
+
   private:
     int m_size;
     int m_half;

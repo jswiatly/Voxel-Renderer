@@ -1,4 +1,5 @@
 #include "World.hpp"
+#include "Block.hpp"
 
 #include <cassert>
 
@@ -50,4 +51,8 @@ void World::setBlock(int x, int y, int z, uint8_t block) {
     }
 
     m_voxelMap[getIndex(x, y, z)] = block;
+}
+
+void World::clear() {
+    std::fill(m_voxelMap.begin(), m_voxelMap.end(), static_cast<uint8_t>(Block::Air));
 }
