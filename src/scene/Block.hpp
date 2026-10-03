@@ -3,16 +3,17 @@
 
 enum class Block : uint8_t {
     Air = 0,
-    Grass,
-    Dirt,
-    Stone,
-    Water,
-    Sand,
-    Gravel,
-    Bedrock,
-    Wood,
-    Leaves,
-    Ice,
+    Dirt = 1,
+    Stone = 2,
+    Wood = 3,
+    Leaves = 4,
+
+    Grass = 5,
+    Water = 6,
+    Sand = 7,
+    Gravel = 8,
+    Bedrock = 9,
+    Ice = 10,
 };
 
 constexpr bool isSolid(Block block) {

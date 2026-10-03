@@ -87,6 +87,7 @@ add_executable(VoxelRenderer
     src/scene/PlayerBlock.cpp
     src/scene/World.cpp
     src/scene/PlayerController.cpp
+    src/worldgen/TerrainGenerator.cpp
 )
 
 target_include_directories(VoxelRenderer PRIVATE src)

@@ -1,4 +1,5 @@
 #include "scene/Terrain.hpp"
+#include "worldgen/TerrainGenerator.hpp"
 #include <iostream>
 
 #include <cmath>
@@ -192,11 +193,13 @@ std::vector<Chunk> generateChunkedTerrain(World& world, const TerrainParams& par
     TracyCZoneEnd(zoneInit);
 
     TracyCZoneN(zoneAlloc, "Alloc voxelMap + column arrays", true);
-    std::vector<uint8_t> voxelMap(SIZE * SIZE * RANGE_Y, BLOCK_AIR);
-    std::vector<int32_t> columnHeight(SIZE * SIZE, 0);
-    std::vector<float> columnBiome(SIZE * SIZE, 0.0f);
-    std::vector<float> columnJitter(SIZE * SIZE, 0.0f);
-    std::vector<uint8_t> columnSlope(SIZE * SIZE, 0);
+    TerrainGenerator generator(params);
+TerrainMetaData metadata = generator.generateBase(world);
+
+auto& columnHeight = metadata.columnTopY;
+auto& columnBiome = metadata.biome;
+auto& columnJitter = metadata.jitter;
+auto& columnSlope = metadata.slope;
     TracyCZoneEnd(zoneAlloc);
 
     const uint32_t seedHash = static_cast<uint32_t>(params.seed) * 0x9E3779B9u;
@@ -240,80 +243,6 @@ std::vector<Chunk> generateChunkedTerrain(World& world, const TerrainParams& par
 
     auto fbm = [&octaves](float x, float z) { return octaves(x, z, false); };
     auto fbmRidged = [&octaves](float x, float z) { return octaves(x, z, true); };
-
-    TracyCZoneN(zoneHeight, "Heightmap + noise + column fill", true);
-    for (int gx = 0; gx < SIZE; ++gx) {
-        for (int gz = 0; gz < SIZE; ++gz) {
-            int x = gx - HALF;
-            int z = gz - HALF;
-            float fx = float(x), fz = float(z);
-            /*
-            float wx =
-                (fbm((fx + 1000.f) * params.warpFreq, (fz + 1000.f) * params.warpFreq) - 0.5f) * params.warpStrength;
-            float wz =
-                (fbm((fx - 1000.f) * params.warpFreq, (fz - 1000.f) * params.warpFreq) - 0.5f) * params.warpStrength;
-            fx += wx;
-            fz += wz;
-
-            float plains = fbm(fx * params.plainsFreq, fz * params.plainsFreq);
-            float sel = noise(fx * 0.008f, fz * 0.008f);
-            sel = glm::clamp((sel - 0.5f) / 0.5f, 0.0f, 1.0f);
-            sel = sel * sel;
-            float mountains = fbmRidged(fx * params.mountainFreq, fz * params.mountainFreq);
-            float cont = fbm(fx * params.continentFreq - 2000.f, fz * params.continentFreq + 2000.f);
-            float land = glm::smoothstep(params.continentLo, params.continenHi, cont);
-            float seabed = params.oceanFloor + plains * params.oceanRelief;
-            float lowland = plains * 16.0f - 5.0f;
-
-            float hf = glm::mix(seabed, lowland, land) + sel * mountains * 110.0f * land;
-            int h = SEA + static_cast<int>(std::floor(hf));
-            */
-
-            float base = fbm(fx * params.baseFrequency, fz * params.baseFrequency);
-
-            float hills = fbm(fx * params.hillFrequency, fz * params.hillFrequency);
-
-            float detail = fbm(fx * params.detailFrequency, fz * params.detailFrequency);
-
-            float hf = params.seaLevel + (base - 0.5f) * params.baseAmplitude + (hills - 0.5f) * params.hillAmplitude +
-                       (detail - 0.5f) * params.detailAmplitude;
-
-            int h = static_cast<int>(std::floor(hf));
-
-            if (x == 0 && z == 0) {
-                std::cout << "SPAWN TERRAIN HEIGHT = " << h << '\n';
-            }
-
-            columnHeight[gx * SIZE + gz] = h;
-            columnBiome[gx * SIZE + gz] =
-                0.75f * noise(fx * 0.006f + 300.f, fz * 0.006f - 300.f) + 0.25f * noise(fx * 0.02f, fz * 0.02f);
-            columnJitter[gx * SIZE + gz] = noise(fx * 0.05f - 700.f, fz * 0.05f + 700.f);
-
-            for (int y = MIN_Y; y <= h; ++y) {
-                uint8_t block = (h - y < 4) ? BLOCK_DIRT : BLOCK_STONE;
-                world.setBlock(gx - HALF, y, gz - HALF, block);
-            }
-        }
-    }
-
-    TracyCZoneEnd(zoneHeight);
-
-    TracyCZoneN(zoneSlope, "Column slope", true);
-    for (int gx = 0; gx < SIZE; ++gx) {
-        for (int gz = 0; gz < SIZE; ++gz) {
-            int h = columnHeight[gx * SIZE + gz];
-            int maxDelta = 0;
-            constexpr int NEIGHBOR[4][2] = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
-            for (const auto& n : NEIGHBOR) {
-                int nx = glm::clamp(gx + n[0], 0, SIZE - 1);
-                int nz = glm::clamp(gz + n[1], 0, SIZE - 1);
-                maxDelta = std::max(maxDelta, std::abs(h - columnHeight[nx * SIZE + nz]));
-            }
-            columnSlope[gx * SIZE + gz] = static_cast<uint8_t>(std::min(maxDelta, 255));
-        }
-    }
-
-    TracyCZoneEnd(zoneSlope);
 
     TracyCZoneN(zoneShore, "Shore dilation", true);
     std::vector<uint8_t> columnShore(SIZE * SIZE, 0);
