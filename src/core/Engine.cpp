@@ -68,6 +68,7 @@ void Engine::loadTerrain(int size, int seed) {
     TerrainParams params;
     params.worldSize = size;
     params.seed = seed;
+    m_world.clear();
     std::vector<Chunk> chunks = generateChunkedTerrain(m_world, params);
     m_chunks.reserve(chunks.size());
     m_waterChunks.reserve(chunks.size());

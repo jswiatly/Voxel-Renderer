@@ -1,6 +1,5 @@
 #include "scene/Terrain.hpp"
 #include "worldgen/TerrainGenerator.hpp"
-#include <iostream>
 
 #include <cmath>
 #include <vector>
@@ -192,14 +191,14 @@ std::vector<Chunk> generateChunkedTerrain(World& world, const TerrainParams& par
 
     TracyCZoneEnd(zoneInit);
 
-    TracyCZoneN(zoneAlloc, "Alloc voxelMap + column arrays", true);
+    TracyCZoneN(zoneAlloc, "Generate base terrain", true);
     TerrainGenerator generator(params);
-TerrainMetaData metadata = generator.generateBase(world);
+    TerrainMetaData metadata = generator.generateBase(world);
 
-auto& columnHeight = metadata.columnTopY;
-auto& columnBiome = metadata.biome;
-auto& columnJitter = metadata.jitter;
-auto& columnSlope = metadata.slope;
+    auto& columnHeight = metadata.columnTopY;
+    auto& columnBiome = metadata.biome;
+    auto& columnJitter = metadata.jitter;
+    auto& columnSlope = metadata.slope;
     TracyCZoneEnd(zoneAlloc);
 
     const uint32_t seedHash = static_cast<uint32_t>(params.seed) * 0x9E3779B9u;
@@ -242,7 +241,6 @@ auto& columnSlope = metadata.slope;
     };
 
     auto fbm = [&octaves](float x, float z) { return octaves(x, z, false); };
-    auto fbmRidged = [&octaves](float x, float z) { return octaves(x, z, true); };
 
     TracyCZoneN(zoneShore, "Shore dilation", true);
     std::vector<uint8_t> columnShore(SIZE * SIZE, 0);
