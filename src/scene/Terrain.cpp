@@ -1,5 +1,6 @@
 #include "scene/Terrain.hpp"
 #include "worldgen/TerrainGenerator.hpp"
+#include "worldgen/FeatureGenerator.hpp"
 
 #include <cmath>
 #include <vector>
@@ -113,9 +114,6 @@ constexpr int FACE_TOP = 5;
 constexpr float LAYER_GRASS = 0.0f;
 constexpr float LAYER_ROCK = 1.0f;
 
-constexpr int CANOPY_BOTTOM = 2;
-constexpr int CANOPY_TOP = 1;
-
 const glm::vec3 TINT_GRASS_LUSH{0.85f, 1.05f, 0.80f};
 const glm::vec3 TINT_GRASS_DRY{1.55f, 1.30f, 0.60f};
 const glm::vec3 TINT_ROCK{1.00f, 0.98f, 0.95f};
@@ -201,49 +199,8 @@ std::vector<Chunk> generateChunkedTerrain(World& world, const TerrainParams& par
     auto& columnSlope = metadata.slope;
     TracyCZoneEnd(zoneAlloc);
 
-    const uint32_t seedHash = static_cast<uint32_t>(params.seed) * 0x9E3779B9u;
-
-    auto hash = [seedHash](int32_t a, int32_t b) {
-        uint32_t h = static_cast<uint32_t>(a) * 0x8DA6B343u ^ static_cast<uint32_t>(b) * 0xD8163841u ^ seedHash;
-        h ^= h >> 15;
-        h *= 0x2C1B3C6Du;
-        h ^= h >> 12;
-        h *= 0x297A2D39u;
-        h ^= h >> 15;
-        return float(h) * (1.0f / 4294967296.0f);
-    };
-
-    auto noise = [&hash](float x, float z) {
-        float xi = std::floor(x), zi = std::floor(z);
-        int32_t ix = static_cast<int32_t>(xi), iz = static_cast<int32_t>(zi);
-        float xf = x - xi, zf = z - zi;
-        float u = xf * xf * (3.f - 2.f * xf);
-        float v = zf * zf * (3.f - 2.f * zf);
-        return glm::mix(glm::mix(hash(ix, iz), hash(ix + 1, iz), u),
-                        glm::mix(hash(ix, iz + 1), hash(ix + 1, iz + 1), u), v);
-    };
-
-    constexpr float ROT_C = 0.8572f;
-    constexpr float ROT_S = 0.5150f;
-
-    auto octaves = [&noise](float x, float z, bool ridged) {
-        float t = 0.f, a = 1.f, n = 0.f;
-        for (int i = 0; i < 6; ++i) {
-            float v = noise(x, z);
-            t += (ridged ? 1.f - std::abs(v - 0.5f) * 2.f : v) * a;
-            n += a;
-            a *= 0.5f;
-            float rx = (x * ROT_C - z * ROT_S) * 2.0f;
-            z = (x * ROT_S + z * ROT_C) * 2.0f;
-            x = rx;
-        }
-        return t / n;
-    };
-
-    auto fbm = [&octaves](float x, float z) { return octaves(x, z, false); };
-
     TracyCZoneN(zoneShore, "Shore dilation", true);
-    std::vector<uint8_t> columnShore(SIZE * SIZE, 0);
+    auto& columnShore = metadata.shore;
     {
         std::vector<uint8_t> rowDilate(SIZE * SIZE, 0);
         for (int gx = 0; gx < SIZE; ++gx) {
@@ -270,59 +227,10 @@ std::vector<Chunk> generateChunkedTerrain(World& world, const TerrainParams& par
 
     TracyCZoneEnd(zoneShore);
 
-    auto growsGrass = [&](int gx, int gz) {
-        const int idx = gx * SIZE + gz;
-        const int h = columnHeight[idx];
-        if (h <= WATER_LEVEL || columnSlope[idx] >= params.cliffSlope)
-            return false;
-        if (columnShore[idx] != 0 && h <= WATER_LEVEL + params.beachHeight)
-            return false;
-        if (columnBiome[idx] > params.desertThreshold)
-            return false;
-        return columnJitter[idx] >= glm::smoothstep(params.alpineStart, params.alpineEnd, float(h));
-    };
-
-    auto plant = [&](int gx, int gz, int y, uint8_t block) {
-        if (gx < 0 || gx >= SIZE || gz < 0 || gz >= SIZE || y < MIN_Y || y > MAX_Y)
-            return;
-
-        if (world.getBlock(gx - HALF, y, gz - HALF) == BLOCK_AIR)
-            world.setBlock(gx - HALF, y, gz - HALF, block);
-    };
-
     TracyCZoneN(zoneTrees, "Trees", true);
-    for (int cellX = 0; cellX * params.treeCell < SIZE; ++cellX) {
-        for (int cellZ = 0; cellZ * params.treeCell < SIZE; ++cellZ) {
-            const int gx = cellX * params.treeCell + int(hash(cellX + 10007, cellZ + 20011) * params.treeCell);
-            const int gz = cellZ * params.treeCell + int(hash(cellX + 30011, cellZ + 40013) * params.treeCell);
-            if (gx >= SIZE || gz >= SIZE || !growsGrass(gx, gz))
-                continue;
 
-            const float forest = fbm((float(gx - HALF) + 4000.f) * 0.01f, (float(gz - HALF) - 4000.f) * 0.01f);
-            if (hash(cellX + 50021, cellZ + 60029) > glm::smoothstep(params.forestLo, params.forestHi, forest))
-                continue;
-
-            const int base = columnHeight[gx * SIZE + gz] + 1;
-            const int top = base + params.trunkMin + int(hash(cellX + 70039, cellZ + 80051) * params.trunkVar) - 1;
-            if (top + CANOPY_TOP > MAX_Y)
-                continue;
-
-            for (int y = base; y <= top; ++y)
-                plant(gx, gz, y, BLOCK_WOOD);
-
-            for (int dy = -CANOPY_BOTTOM; dy <= CANOPY_TOP; ++dy) {
-                const int radius = (dy < 0) ? 2 : 1;
-                for (int dx = -radius; dx <= radius; ++dx) {
-                    for (int dz = -radius; dz <= radius; ++dz) {
-                        const bool corner = std::abs(dx) == radius && std::abs(dz) == radius;
-                        if (corner && (dy == CANOPY_TOP || hash(gx + dx * 31, gz + dz * 17) < 0.55f))
-                            continue;
-                        plant(gx + dx, gz + dz, top + dy, BLOCK_LEAVES);
-                    }
-                }
-            }
-        }
-    }
+    FeatureGenerator features(params);
+    features.generateTrees(world, metadata);
 
     TracyCZoneEnd(zoneTrees);
 

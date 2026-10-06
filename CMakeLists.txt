@@ -88,6 +88,8 @@ add_executable(VoxelRenderer
     src/scene/World.cpp
     src/scene/PlayerController.cpp
     src/worldgen/TerrainGenerator.cpp
+    src/worldgen/FeatureGenerator.cpp
+    src/worldgen/WorldRandom.cpp
 )
 
 target_include_directories(VoxelRenderer PRIVATE src)
