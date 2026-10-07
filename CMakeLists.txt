@@ -90,6 +90,8 @@ add_executable(VoxelRenderer
     src/worldgen/TerrainGenerator.cpp
     src/worldgen/FeatureGenerator.cpp
     src/worldgen/WorldRandom.cpp
+    src/worldgen/ImprovedPerlin.cpp
+    src/worldgen/OctavePerlin.cpp
 )
 
 target_include_directories(VoxelRenderer PRIVATE src)
