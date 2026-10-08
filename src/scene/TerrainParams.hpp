@@ -6,10 +6,10 @@ struct TerrainParams {
 
     // Terrain height
     float baseFrequency = 0.005f;
-    float baseAmplitude = 35.0f;
+    float baseAmplitude = 500.0f;
 
-    float hillFrequency = 0.008f;
-    float hillAmplitude = 45.0f;
+    float hillFrequency = 0.020f;
+    float hillAmplitude = 700.0f;
 
     float detailFrequency = 0.05f;
     float detailAmplitude = 3.0f;

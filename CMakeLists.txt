@@ -67,7 +67,7 @@ target_link_libraries(imgui PUBLIC glfw Vulkan::Vulkan)
 # ---------------------------------------------------------------------------
 add_executable(VoxelRenderer
     src/main.cpp
-    src/Time.cpp
+    src/core/Time.cpp
     src/core/Window.cpp
     src/core/Debug.cpp
     src/core/VulkanContext.cpp
@@ -87,11 +87,13 @@ add_executable(VoxelRenderer
     src/scene/PlayerBlock.cpp
     src/scene/World.cpp
     src/scene/PlayerController.cpp
-    src/worldgen/TerrainGenerator.cpp
+    src/worldgen/TerrainGeneratorNew.cpp
     src/worldgen/FeatureGenerator.cpp
     src/worldgen/WorldRandom.cpp
     src/worldgen/ImprovedPerlin.cpp
     src/worldgen/OctavePerlin.cpp
+    src/worldgen/SurfaceGenerator.cpp
+    src/tools/Benchmark.cpp
 )
 
 target_include_directories(VoxelRenderer PRIVATE src)

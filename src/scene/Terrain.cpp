@@ -1,16 +1,14 @@
-#include "scene/Terrain.hpp"
+#include "World.hpp"
+#include "Terrain.hpp"
+#include "Block.hpp"
 #include "worldgen/TerrainGenerator.hpp"
 #include "worldgen/FeatureGenerator.hpp"
+#include "worldgen/SurfaceGenerator.hpp"
 
 #include <cmath>
 #include <vector>
 #include <algorithm>
 #include <glm/glm.hpp>
-
-#include <tracy/Tracy.hpp>
-#include <tracy/TracyC.h>
-
-#include "World.hpp"
 
 namespace {
 
@@ -98,23 +96,18 @@ void addWaterQuad(std::vector<Vertex>& vertices, std::vector<uint32_t>& indices,
     indices.push_back(start + 0);
 }
 
-constexpr uint8_t BLOCK_AIR = 0;
-constexpr uint8_t BLOCK_DIRT = 1;
-constexpr uint8_t BLOCK_STONE = 2;
-constexpr uint8_t BLOCK_WOOD = 3;
-constexpr uint8_t BLOCK_LEAVES = 4;
-
 constexpr int MIN_Y = -32;
 constexpr int MAX_Y = 128;
-constexpr int RANGE_Y = MAX_Y - MIN_Y + 1;
-constexpr int SEA = 0;
-
-constexpr int FACE_TOP = 5;
 
 constexpr float LAYER_GRASS = 0.0f;
 constexpr float LAYER_ROCK = 1.0f;
 
-const glm::vec3 TINT_GRASS_LUSH{0.85f, 1.05f, 0.80f};
+struct SurfaceMaterial {
+    glm::vec3 tint;
+    float layer;
+};
+
+const glm::vec3 TINT_GRASS{0.85f, 1.05f, 0.80f};
 const glm::vec3 TINT_GRASS_DRY{1.55f, 1.30f, 0.60f};
 const glm::vec3 TINT_ROCK{1.00f, 0.98f, 0.95f};
 const glm::vec3 TINT_SAND{1.80f, 1.52f, 0.95f};
@@ -122,61 +115,37 @@ const glm::vec3 TINT_DIRT{1.15f, 0.80f, 0.52f};
 const glm::vec3 TINT_STONE{0.85f, 0.84f, 0.86f};
 const glm::vec3 TINT_SEABED{1.25f, 1.15f, 0.85f};
 const glm::vec3 TINT_WOOD{0.72f, 0.48f, 0.30f};
-const glm::vec3 TINT_LEAVES_LUSH{0.58f, 0.82f, 0.46f};
+const glm::vec3 TINT_LEAVES{0.58f, 0.82f, 0.46f};
 const glm::vec3 TINT_LEAVES_DRY{0.95f, 0.85f, 0.40f};
 
-struct SurfaceMaterial {
-    glm::vec3 tint;
-    float layer;
-};
+SurfaceMaterial materialForBlock(Block block) {
+    switch (block) {
+    case Block::Grass:
+        return {TINT_GRASS, LAYER_GRASS};
 
-SurfaceMaterial pickMaterial(int y, int depth, int slope, float biome, float jitter, bool shore, bool topFace,
-                             const TerrainParams& params) {
-    if (depth >= params.soilDepth)
-        return {TINT_STONE, LAYER_ROCK};
-
-    if (y < WATER_LEVEL)
-        return {TINT_SEABED, LAYER_ROCK};
-
-    if (slope >= params.cliffSlope)
-        return {TINT_ROCK, LAYER_ROCK};
-
-    if ((shore && y <= WATER_LEVEL + params.beachHeight) || biome > params.desertThreshold)
-        return {TINT_SAND, LAYER_ROCK};
-
-    if (!topFace || depth > 0)
+    case Block::Dirt:
         return {TINT_DIRT, LAYER_ROCK};
 
-    float alpine = glm::smoothstep(params.alpineStart, params.alpineEnd, float(y));
-    if (jitter < alpine)
-        return {TINT_ROCK, LAYER_ROCK};
+    case Block::Stone:
+        return {TINT_STONE, LAYER_ROCK};
 
-    return {glm::mix(TINT_GRASS_LUSH, TINT_GRASS_DRY, glm::smoothstep(0.45f, 0.62f, biome)), LAYER_GRASS};
+    case Block::Wood:
+        return {TINT_WOOD, LAYER_ROCK};
+
+    case Block::Leaves:
+        return {TINT_LEAVES, LAYER_GRASS};
+
+    default:
+        return {TINT_STONE, LAYER_ROCK};
+    }
 }
-
-bool isTreeBlock(uint8_t block) {
-    return block == BLOCK_WOOD || block == BLOCK_LEAVES;
-}
-
-SurfaceMaterial treeMaterial(uint8_t block, float biome, float jitter) {
-    if (block == BLOCK_WOOD)
-        return {TINT_WOOD * (0.90f + 0.20f * jitter), LAYER_ROCK};
-
-    glm::vec3 leaf = glm::mix(TINT_LEAVES_LUSH, TINT_LEAVES_DRY, glm::smoothstep(0.45f, 0.62f, biome));
-    return {leaf * (0.85f + 0.30f * jitter), LAYER_GRASS};
-}
-
 } // namespace
 
 std::vector<Chunk> generateChunkedTerrain(World& world, const TerrainParams& params) {
-    ZoneScoped;
     const int SIZE = params.worldSize;
     const int HALF = SIZE / 2;
     const int chunksPerAxis = (SIZE + CHUNK_SIZE_X - 1) / CHUNK_SIZE_X;
-    ZoneTextF("world %dx%d, %d chunks, voxelMap %.1f MB", SIZE, SIZE, chunksPerAxis * chunksPerAxis,
-              double(SIZE) * double(SIZE) * double(RANGE_Y) / (1024.0 * 1024.0));
 
-    TracyCZoneN(zoneInit, "Init chunks", true);
     std::vector<Chunk> chunks(chunksPerAxis * chunksPerAxis);
 
     for (int cx = 0; cx < chunksPerAxis; ++cx) {
@@ -187,20 +156,16 @@ std::vector<Chunk> generateChunkedTerrain(World& world, const TerrainParams& par
         }
     }
 
-    TracyCZoneEnd(zoneInit);
-
-    TracyCZoneN(zoneAlloc, "Generate base terrain", true);
     TerrainGenerator generator(params);
+
     TerrainMetaData metadata = generator.generateBase(world);
 
-    auto& columnHeight = metadata.columnTopY;
-    auto& columnBiome = metadata.biome;
-    auto& columnJitter = metadata.jitter;
-    auto& columnSlope = metadata.slope;
-    TracyCZoneEnd(zoneAlloc);
+    SurfaceGenerator surface;
+    surface.generate(world, metadata);
 
-    TracyCZoneN(zoneShore, "Shore dilation", true);
+    auto& columnHeight = metadata.columnTopY;
     auto& columnShore = metadata.shore;
+
     {
         std::vector<uint8_t> rowDilate(SIZE * SIZE, 0);
         for (int gx = 0; gx < SIZE; ++gx) {
@@ -225,18 +190,12 @@ std::vector<Chunk> generateChunkedTerrain(World& world, const TerrainParams& par
         }
     }
 
-    TracyCZoneEnd(zoneShore);
-
-    TracyCZoneN(zoneTrees, "Trees", true);
-
     FeatureGenerator features(params);
     features.generateTrees(world, metadata);
 
-    TracyCZoneEnd(zoneTrees);
-
     auto getVoxel = [&](int x, int y, int z) -> uint8_t { return world.getBlock(x, y, z); };
 
-    auto isSolidAO = [&](int x, int y, int z) { return getVoxel(x, y, z) != BLOCK_AIR; };
+    auto isSolidAO = [&](int x, int y, int z) { return isOpaque(static_cast<Block>(getVoxel(x, y, z))); };
 
     auto faceAO = [&](int x, int y, int z, int face) {
         glm::vec4 ao;
@@ -251,7 +210,6 @@ std::vector<Chunk> generateChunkedTerrain(World& world, const TerrainParams& par
         return ao;
     };
 
-    TracyCZoneN(zoneMesh, "Meshing (faces + AO)", true);
     for (int gx = 0; gx < SIZE; ++gx) {
         for (int gz = 0; gz < SIZE; ++gz) {
             int x = gx - HALF;
@@ -261,50 +219,30 @@ std::vector<Chunk> generateChunkedTerrain(World& world, const TerrainParams& par
             int cz = gz / CHUNK_SIZE_Z;
             Chunk& chunk = chunks[cx * chunksPerAxis + cz];
 
-            const int surfaceY = columnHeight[gx * SIZE + gz];
-            const float biome = columnBiome[gx * SIZE + gz];
-            const float jitter = columnJitter[gx * SIZE + gz];
-            const int slope = columnSlope[gx * SIZE + gz];
-            const bool shore = columnShore[gx * SIZE + gz] != 0;
-
             for (int y = MIN_Y; y <= MAX_Y; ++y) {
-                uint8_t block = getVoxel(x, y, z);
-                if (block == BLOCK_AIR)
+                const Block block = static_cast<Block>(getVoxel(x, y, z));
+
+                if (block == Block::Air)
                     continue;
 
-                const int depth = surfaceY - y;
-
                 for (int f = 0; f < 6; ++f) {
-                    glm::ivec3 d = FACE_DIR[f];
-                    uint8_t neighbor = getVoxel(x + d.x, y + d.y, z + d.z);
+                    const glm::ivec3 d = FACE_DIR[f];
 
-                    if (neighbor == BLOCK_AIR) {
-                        SurfaceMaterial mat = isTreeBlock(block) ? treeMaterial(block, biome, jitter)
-                                                                 : pickMaterial(y, depth, slope, biome, jitter, shore,
-                                                                                f == FACE_TOP, params);
-                        glm::vec4 ao = faceAO(x, y, z, f);
-                        addFace(chunk.vertices, chunk.indices, glm::vec3(x, y, z), f, mat.tint, ao, mat.layer);
-                    }
+                    const Block neighbor = static_cast<Block>(getVoxel(x + d.x, y + d.y, z + d.z));
+
+                    if (neighbor != Block::Air)
+                        continue;
+
+                    const SurfaceMaterial mat = materialForBlock(block);
+
+                    const glm::vec4 ao = faceAO(x, y, z, f);
+
+                    addFace(chunk.vertices, chunk.indices, glm::vec3(x, y, z), f, mat.tint, ao, mat.layer);
                 }
             }
         }
     }
 
-#ifdef TRACY_ENABLE
-    {
-        size_t totalVerts = 0, totalIdx = 0;
-        for (const Chunk& c : chunks) {
-            totalVerts += c.vertices.size();
-            totalIdx += c.indices.size();
-        }
-        TracyCZoneValue(zoneMesh, totalVerts);
-        TracyPlot("Terrain vertices", static_cast<int64_t>(totalVerts));
-        TracyPlot("Terrain indices", static_cast<int64_t>(totalIdx));
-    }
-#endif
-    TracyCZoneEnd(zoneMesh);
-
-    TracyCZoneN(zoneWater, "Water quads (greedy)", true);
     for (int cx = 0; cx < chunksPerAxis; ++cx) {
         for (int cz = 0; cz < chunksPerAxis; ++cz) {
             Chunk& chunk = chunks[cx * chunksPerAxis + cz];
@@ -349,16 +287,5 @@ std::vector<Chunk> generateChunkedTerrain(World& world, const TerrainParams& par
             }
         }
     }
-
-#ifdef TRACY_ENABLE
-    {
-        size_t quads = 0;
-        for (const Chunk& c : chunks)
-            quads += c.waterIndices.size() / 6;
-        TracyCZoneValue(zoneWater, quads);
-    }
-#endif
-    TracyCZoneEnd(zoneWater);
-
     return chunks;
 }
