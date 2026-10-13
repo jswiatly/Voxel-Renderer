@@ -25,6 +25,10 @@ void InputHandler::process(GLFWwindow* window, Camera& camera, PlayerController&
     }
     m_f5WasPressed = f5Pressed;
 
+    if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS) {
+        player.jump();
+    }
+
     glm::vec3 forward = camera.front;
     forward.y = 0.0f;
     forward = glm::normalize(forward);

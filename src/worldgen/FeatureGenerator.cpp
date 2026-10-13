@@ -19,9 +19,7 @@ void FeatureGenerator::generateTrees(World& world, const TerrainMetaData& metada
             return false;
         if (metadata.shore[idx] != 0 && h <= m_settings.seaLevel + m_settings.beachHeight)
             return false;
-        if (metadata.biome[idx] > m_settings.desertThreshold)
-            return false;
-        return metadata.jitter[idx] >= glm::smoothstep(m_settings.alpineStart, m_settings.alpineEnd, float(h));
+        return true;
     };
 
     auto plant = [&](int gx, int gz, int y, uint8_t block) {

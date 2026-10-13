@@ -115,7 +115,7 @@ const glm::vec3 TINT_DIRT{1.15f, 0.80f, 0.52f};
 const glm::vec3 TINT_STONE{0.85f, 0.84f, 0.86f};
 const glm::vec3 TINT_SEABED{1.25f, 1.15f, 0.85f};
 const glm::vec3 TINT_WOOD{0.72f, 0.48f, 0.30f};
-const glm::vec3 TINT_LEAVES{0.58f, 0.82f, 0.46f};
+const glm::vec3 TINT_LEAVES{0.384f, 0.22f, 0.212f};
 const glm::vec3 TINT_LEAVES_DRY{0.95f, 0.85f, 0.40f};
 
 SurfaceMaterial materialForBlock(Block block) {
