@@ -92,6 +92,7 @@ add_executable(VoxelRenderer
     src/worldgen/ImprovedPerlin.cpp
     src/worldgen/OctavePerlin.cpp
     src/worldgen/SurfaceGenerator.cpp
+    src/worldgen/CaveGenerator.cpp
     src/tools/Benchmark.cpp
 )
 

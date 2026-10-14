@@ -9,6 +9,13 @@ constexpr int CANOPY_BOTTOM = 2;
 constexpr int CANOPY_TOP = 1;
 } // namespace
 
+void FeatureGenerator::generateMonument(World& world, const TerrainMetaData& metadata) const {
+    constexpr int digits[3][7][5] = {
+        {}
+    }
+}
+
+
 FeatureGenerator::FeatureGenerator(const WorldGenSettings& settings) : m_settings(settings) {}
 
 void FeatureGenerator::generateTrees(World& world, const TerrainMetaData& metadata) const {
