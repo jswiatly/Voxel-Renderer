@@ -11,6 +11,8 @@ class FeatureGenerator {
 
     void generateTrees(World& world, const TerrainMetaData& metadata) const;
 
+    void generateMonument(World& world, const TerrainMetaData& metadata) const;
+
   private:
     WorldGenSettings m_settings;
 };

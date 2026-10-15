@@ -4,6 +4,7 @@
 #include "worldgen/TerrainGenerator.hpp"
 #include "worldgen/FeatureGenerator.hpp"
 #include "worldgen/SurfaceGenerator.hpp"
+#include "worldgen/CaveGenerator.hpp"
 
 #include <cmath>
 #include <vector>
@@ -160,6 +161,9 @@ std::vector<Chunk> generateChunkedTerrain(World& world, const TerrainParams& par
 
     TerrainMetaData metadata = generator.generateBase(world);
 
+    CaveGenerator caves(params);
+    caves.generate(world, metadata);
+
     SurfaceGenerator surface;
     surface.generate(world, metadata);
 
@@ -192,6 +196,7 @@ std::vector<Chunk> generateChunkedTerrain(World& world, const TerrainParams& par
 
     FeatureGenerator features(params);
     features.generateTrees(world, metadata);
+    features.generateMonument(world, metadata);
 
     auto getVoxel = [&](int x, int y, int z) -> uint8_t { return world.getBlock(x, y, z); };
 
