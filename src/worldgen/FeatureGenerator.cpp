@@ -10,32 +10,6 @@ constexpr int CANOPY_TOP = 1;
 } // namespace
 
 void FeatureGenerator::generateMonument(World& world, const TerrainMetaData& metadata) const {
-    // 5x7 bitmap font: 1, 0, 0.
-    constexpr int digits[3][7][5] = {{{0, 0, 1, 0, 0},
-                                      {0, 1, 1, 0, 0},
-                                      {0, 0, 1, 0, 0},
-                                      {0, 0, 1, 0, 0},
-                                      {0, 0, 1, 0, 0},
-                                      {0, 0, 1, 0, 0},
-                                      {1, 1, 1, 1, 1}},
-                                     {{0, 1, 1, 1, 0},
-                                      {1, 0, 0, 0, 1},
-                                      {1, 0, 0, 1, 1},
-                                      {1, 0, 1, 0, 1},
-                                      {1, 1, 0, 0, 1},
-                                      {1, 0, 0, 0, 1},
-                                      {0, 1, 1, 1, 0}},
-                                     {{0, 1, 1, 1, 0},
-                                      {1, 0, 0, 0, 1},
-                                      {1, 0, 0, 1, 1},
-                                      {1, 0, 1, 0, 1},
-                                      {1, 1, 0, 0, 1},
-                                      {1, 0, 0, 0, 1},
-                                      {0, 1, 1, 1, 0}}};
-
-    constexpr int HEART[7][7] = {{0, 0, 1, 0, 1, 0, 0}, {0, 1, 1, 1, 1, 1, 0}, {1, 1, 1, 1, 1, 1, 1},
-                                 {1, 1, 1, 1, 1, 1, 1}, {0, 1, 1, 1, 1, 1, 0}, {0, 0, 1, 1, 1, 0, 0},
-                                 {0, 0, 0, 1, 0, 0, 0}};
 
     constexpr int SCALE = 4;
     constexpr int FLOATING_HEIGHT = 100;
@@ -44,57 +18,35 @@ void FeatureGenerator::generateMonument(World& world, const TerrainMetaData& met
     constexpr int DIGIT_WIDTH = 5;
     constexpr int DIGIT_HEIGHT = 7;
     constexpr int GAP = 1;
+    constexpr int HEART_SIZE = 7;
+    constexpr int HEART_GAP = 4;
 
-    constexpr int totalWidth = (3 * DIGIT_WIDTH + 2 * GAP) * SCALE;
-    constexpr int totalHeight = DIGIT_HEIGHT * SCALE;
+    constexpr int ART_WIDTH = 22;
+    constexpr int ART_HEIGHT = 7;
+
+    constexpr int ART[ART_HEIGHT][ART_WIDTH] = {{0, 0, 1, 0, 0, 0, 1, 1, 1, 0, 0, 1, 1, 1, 0, 0, 0, 1, 0, 1, 0, 0},
+                                                {0, 1, 1, 0, 0, 1, 0, 0, 0, 1, 1, 0, 0, 0, 1, 0, 1, 1, 1, 1, 1, 0},
+                                                {0, 0, 1, 0, 0, 1, 0, 0, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1},
+                                                {0, 0, 1, 0, 0, 1, 0, 1, 0, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1},
+                                                {0, 0, 1, 0, 0, 1, 1, 0, 0, 1, 1, 1, 0, 0, 1, 0, 1, 1, 1, 1, 1, 0},
+                                                {0, 0, 1, 0, 0, 1, 0, 0, 0, 1, 1, 0, 0, 0, 1, 0, 0, 1, 1, 1, 0, 0},
+                                                {1, 1, 1, 1, 1, 0, 1, 1, 1, 0, 0, 1, 1, 1, 0, 0, 0, 0, 1, 0, 0, 0}};
 
     const int startX = metadata.half + 100;
     const int startY = FLOATING_HEIGHT;
+    const int baseGZ = metadata.half + 100;
 
-    for (int d = 0; d < 3; ++d) {
-        for (int row = 0; row < DIGIT_HEIGHT; ++row) {
-            for (int col = 0; col < DIGIT_WIDTH; ++col) {
-                if (!digits[d][row][col])
-                    continue;
-
-                for (int dx = 0; dx < SCALE; ++dx) {
-                    for (int dy = 0; dy < SCALE; ++dy) {
-                        for (int dz = 0; dz < THICKNESS; ++dz) {
-                            const int gx = startX + (d * (DIGIT_WIDTH + GAP) + col) * SCALE + dx;
-                            const int y = startY + (DIGIT_HEIGHT - 1 - row) * SCALE + dy;
-                            const int gz = metadata.size / 2 + dz;
-
-                            if (gx < 0 || gx >= metadata.size || y < World::MIN_Y || y > World::MAX_Y)
-                                continue;
-
-                            world.setBlock(gx - metadata.half, y, gz - metadata.half,
-                                           static_cast<uint8_t>(Block::Stone));
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    constexpr int HEART_SIZE = 7;
-
-    // Odstęp między napisem a sercem.
-    constexpr int HEART_GAP = 4;
-
-    const int heartStartX = metadata.half + 100 + totalWidth + HEART_GAP;
-    const int heartStartY = FLOATING_HEIGHT;
-
-    for (int row = 0; row < HEART_SIZE; ++row) {
-        for (int col = 0; col < HEART_SIZE; ++col) {
-            if (!HEART[row][col])
+    for (int row = 0; row < ART_HEIGHT; ++row) {
+        for (int col = 0; col < ART_WIDTH; ++col) {
+            if (!ART[row][col])
                 continue;
 
             for (int dx = 0; dx < SCALE; ++dx) {
                 for (int dy = 0; dy < SCALE; ++dy) {
                     for (int dz = 0; dz < THICKNESS; ++dz) {
-                        const int gx = heartStartX + col * SCALE + dx;
-                        const int y = heartStartY + (HEART_SIZE - 1 - row) * SCALE + dy;
-                        const int gz = metadata.half + 100 + dz;
+                        const int gx = startX + col * SCALE + dx;
+                        const int y = startY + (ART_HEIGHT - 1 - row) * SCALE + dy;
+                        const int gz = baseGZ + dz;
 
                         if (gx < 0 || gx >= metadata.size || y < World::MIN_Y || y > World::MAX_Y)
                             continue;
