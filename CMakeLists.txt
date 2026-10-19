@@ -6,9 +6,6 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 find_package(Vulkan REQUIRED COMPONENTS glslc)
 
-# ---------------------------------------------------------------------------
-# Dependencies (fetched automatically at configure time)
-# ---------------------------------------------------------------------------
 include(FetchContent)
 
 set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
@@ -31,17 +28,12 @@ FetchContent_Declare(VulkanMemoryAllocator
     GIT_REPOSITORY https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator.git
     GIT_TAG        v3.4.0
 )
-# The Tracy GUI you connect with must be built from the same version as this tag.
 FetchContent_Declare(tracy
     GIT_REPOSITORY https://github.com/wolfpld/tracy.git
     GIT_TAG        v0.14.1
     GIT_SHALLOW    TRUE
 )
 
-# Tracy's own CMake defaults TRACY_ENABLE to OFF, in which case every Zone*/TracyVk* macro
-# compiles to nothing. Configure with -DVOXEL_PROFILING=OFF for a build with zero overhead.
-# TRACY_ON_DEMAND is deliberately left OFF: with it, events emitted before the GUI connects
-# (i.e. the terrain generation at startup) would be dropped.
 option(VOXEL_PROFILING "Build with Tracy profiler instrumentation" ON)
 set(TRACY_ENABLE ${VOXEL_PROFILING} CACHE BOOL "" FORCE)
 
@@ -62,9 +54,6 @@ target_include_directories(imgui PUBLIC
 )
 target_link_libraries(imgui PUBLIC glfw Vulkan::Vulkan)
 
-# ---------------------------------------------------------------------------
-# Engine executable
-# ---------------------------------------------------------------------------
 add_executable(VoxelRenderer
     src/main.cpp
     src/core/Time.cpp
@@ -87,6 +76,7 @@ add_executable(VoxelRenderer
     src/scene/PlayerBlock.cpp
     src/scene/World.cpp
     src/scene/PlayerController.cpp
+    src/scene/VoxelRaycast.cpp
     src/worldgen/TerrainGeneratorNew.cpp
     src/worldgen/FeatureGenerator.cpp
     src/worldgen/ImprovedPerlin.cpp
@@ -107,9 +97,6 @@ target_link_libraries(VoxelRenderer PRIVATE
     Tracy::TracyClient
 )
 
-# ---------------------------------------------------------------------------
-# Shaders (compiled with glslc from the Vulkan SDK) and runtime assets
-# ---------------------------------------------------------------------------
 set(SHADER_OUT_DIR ${CMAKE_CURRENT_BINARY_DIR}/shaders)
 
 add_custom_command(
