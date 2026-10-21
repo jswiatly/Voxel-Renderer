@@ -76,7 +76,6 @@ add_executable(VoxelRenderer
     src/scene/PlayerBlock.cpp
     src/scene/World.cpp
     src/scene/PlayerController.cpp
-    src/scene/VoxelRaycast.cpp
     src/worldgen/TerrainGeneratorNew.cpp
     src/worldgen/FeatureGenerator.cpp
     src/worldgen/ImprovedPerlin.cpp
