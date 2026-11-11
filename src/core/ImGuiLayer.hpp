@@ -29,6 +29,13 @@ class ImGuiLayer {
     void renderDrawData(VkCommandBuffer commandBuffer);
 
   private:
+    enum class InspectorSection {
+        World,
+        Environment,
+        Player,
+        Renderer,
+    };
+
     void createDescriptorPool();
 
     VulkanContext* m_ctx = nullptr;
@@ -44,4 +51,5 @@ class ImGuiLayer {
     bool m_showPlayerHud = true;
     bool m_showCrosshair = true;
     bool m_showOrientationGizmo = true;
+    InspectorSection m_selectedInspector = InspectorSection::World;
 };

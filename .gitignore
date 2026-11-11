@@ -4,3 +4,4 @@ build*/
 imgui.ini
 vma_stats_*.json
 external/
+tools/clang-uml/

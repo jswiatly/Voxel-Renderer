@@ -3,6 +3,7 @@ project(VoxelRenderer LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 find_package(Vulkan REQUIRED COMPONENTS glslc)
 
@@ -95,6 +96,27 @@ target_link_libraries(VoxelRenderer PRIVATE
     GPUOpen::VulkanMemoryAllocator
     Tracy::TracyClient
 )
+
+find_program(CLANG_UML_EXECUTABLE NAMES clang-uml clang-uml.exe HINTS
+    "${CMAKE_CURRENT_SOURCE_DIR}/tools/clang-uml/bin"
+    "$ENV{ProgramFiles}/clang-uml/bin"
+)
+
+if(CLANG_UML_EXECUTABLE)
+    add_custom_target(uml
+        COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_SOURCE_DIR}/docs/diagrams
+        COMMAND ${CLANG_UML_EXECUTABLE} --config ${CMAKE_CURRENT_SOURCE_DIR}/.clang-uml --progress
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        VERBATIM
+    )
+
+    add_custom_target(uml-mermaid
+        COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_SOURCE_DIR}/docs/diagrams
+        COMMAND ${CLANG_UML_EXECUTABLE} --config ${CMAKE_CURRENT_SOURCE_DIR}/.clang-uml --progress --generator mermaid
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        VERBATIM
+    )
+endif()
 
 set(SHADER_OUT_DIR ${CMAKE_CURRENT_BINARY_DIR}/shaders)
 

@@ -8,6 +8,7 @@
 #include <imgui.h>
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_vulkan.h>
+#include <imgui_internal.h>
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -257,7 +258,25 @@ void ImGuiLayer::draw(Camera& camera, float& timeOfDay, bool& manualTime, float&
         ImGui::End();
     }
 
-    ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode);
+    const ImGuiID dockspaceId = ImGui::GetID("VestaDockspace");
+    if (ImGui::DockBuilderGetNode(dockspaceId) == nullptr) {
+        ImGui::DockBuilderAddNode(dockspaceId, ImGuiDockNodeFlags_DockSpace);
+        ImGui::DockBuilderSetNodePos(dockspaceId, viewport->WorkPos);
+        ImGui::DockBuilderSetNodeSize(dockspaceId, viewport->WorkSize);
+
+        ImGuiID remaining = dockspaceId;
+        ImGuiID outlinerDock = 0;
+        ImGuiID inspectorDock = 0;
+        ImGuiID profilerDock = 0;
+        ImGui::DockBuilderSplitNode(remaining, ImGuiDir_Left, 0.20f, &outlinerDock, &remaining);
+        ImGui::DockBuilderSplitNode(remaining, ImGuiDir_Right, 0.25f, &inspectorDock, &remaining);
+        ImGui::DockBuilderSplitNode(remaining, ImGuiDir_Down, 0.30f, &profilerDock, &remaining);
+        ImGui::DockBuilderDockWindow("Outliner", outlinerDock);
+        ImGui::DockBuilderDockWindow("Inspector", inspectorDock);
+        ImGui::DockBuilderDockWindow("Profiler", profilerDock);
+        ImGui::DockBuilderFinish(dockspaceId);
+    }
+    ImGui::DockSpaceOverViewport(dockspaceId, viewport, ImGuiDockNodeFlags_PassthruCentralNode);
 
     const float ms = ImGui::GetIO().DeltaTime * 1000.0f;
 
@@ -283,15 +302,44 @@ void ImGuiLayer::draw(Camera& camera, float& timeOfDay, bool& manualTime, float&
                       IM_COL32_WHITE, 1.5f);
     }
 
-    // 1. Zwarty panel kontrolny z zakładkami
+    ImGui::Begin("Outliner");
+    const auto selectInspector = [this](const char* label, InspectorSection section) {
+        if (ImGui::Selectable(label, m_selectedInspector == section))
+            m_selectedInspector = section;
+    };
+
+    if (ImGui::TreeNodeEx("World", ImGuiTreeNodeFlags_DefaultOpen)) {
+        selectInspector("Terrain", InspectorSection::World);
+        selectInspector("Water", InspectorSection::World);
+        selectInspector("Generation", InspectorSection::World);
+        ImGui::TreePop();
+    }
+    if (ImGui::TreeNodeEx("Environment", ImGuiTreeNodeFlags_DefaultOpen)) {
+        selectInspector("Sky", InspectorSection::Environment);
+        selectInspector("Fog", InspectorSection::Environment);
+        ImGui::TreePop();
+    }
+    if (ImGui::TreeNodeEx("Player", ImGuiTreeNodeFlags_DefaultOpen)) {
+        selectInspector("Camera", InspectorSection::Player);
+        selectInspector("HUD", InspectorSection::Player);
+        ImGui::TreePop();
+    }
+    if (ImGui::TreeNodeEx("Renderer", ImGuiTreeNodeFlags_DefaultOpen)) {
+        selectInspector("Visibility", InspectorSection::Renderer);
+        selectInspector("Performance", InspectorSection::Renderer);
+        ImGui::TreePop();
+    }
+    ImGui::End();
+
     ImGui::SetNextWindowSize(ImVec2(380, 450), ImGuiCond_FirstUseEver);
-    ImGui::Begin("Control Panel");
+    ImGui::Begin("Inspector");
 
     if (ImGui::BeginTabBar("MainTabs")) {
 
         // Zakładka Ustawień
         if (ImGui::BeginTabItem("Settings")) {
-            if (ImGui::CollapsingHeader("Environment", ImGuiTreeNodeFlags_DefaultOpen)) {
+            if (m_selectedInspector == InspectorSection::Environment &&
+                ImGui::CollapsingHeader("Environment", ImGuiTreeNodeFlags_DefaultOpen)) {
                 int hh = static_cast<int>(timeOfDay * 24.0f);
                 int mm = static_cast<int>(timeOfDay * 24.0f * 60.0f) % 60;
                 int ss = static_cast<int>(timeOfDay * 24.0f * 3600.0f) % 60;
@@ -305,13 +353,24 @@ void ImGuiLayer::draw(Camera& camera, float& timeOfDay, bool& manualTime, float&
                 ImGui::Checkbox("Fog", &fogEnabled);
             }
 
-            if (ImGui::CollapsingHeader("Camera", ImGuiTreeNodeFlags_DefaultOpen)) {
-                ImGui::SliderFloat("Render distance", &renderDistance, 16.0f, MAX_RENDER_DISTANCE, "%.0f",
-                                   ImGuiSliderFlags_Logarithmic);
+            if (m_selectedInspector == InspectorSection::Player &&
+                ImGui::CollapsingHeader("Player", ImGuiTreeNodeFlags_DefaultOpen)) {
+                ImGui::Text("Mode: %s", camera.thirdPerson ? "Third-person" : "First-person");
+                ImGui::TextDisabled("Toggle view with F5");
+                ImGui::Checkbox("Player HUD", &m_showPlayerHud);
+                ImGui::Checkbox("Crosshair", &m_showCrosshair);
+                ImGui::Checkbox("3D orientation gizmo", &m_showOrientationGizmo);
                 ImGui::SliderFloat("Camera speed", &camera.movementSpeed, 1.0f, 50.0f, "%.1f");
             }
 
-            if (ImGui::CollapsingHeader("World Generation", ImGuiTreeNodeFlags_DefaultOpen)) {
+            if (m_selectedInspector == InspectorSection::Renderer &&
+                ImGui::CollapsingHeader("Renderer", ImGuiTreeNodeFlags_DefaultOpen)) {
+                ImGui::SliderFloat("Render distance", &renderDistance, 16.0f, MAX_RENDER_DISTANCE, "%.0f",
+                                   ImGuiSliderFlags_Logarithmic);
+            }
+
+            if (m_selectedInspector == InspectorSection::World &&
+                ImGui::CollapsingHeader("World Generation", ImGuiTreeNodeFlags_DefaultOpen)) {
                 ImGui::PushItemWidth(100.0f);
                 ImGui::InputInt("Seed", &seed);
                 ImGui::SameLine();
@@ -489,9 +548,20 @@ void ImGuiLayer::draw(Camera& camera, float& timeOfDay, bool& manualTime, float&
         }
         ImGui::EndTabBar();
     }
-    ImGui::End(); // Koniec panelu głównego
+    ImGui::End();
 
-    // 2. Nienaprzykrzający się HUD z orientacją 3D
+    ImGui::Begin("Profiler");
+    ImGui::Text("%.1f FPS", ImGui::GetIO().Framerate);
+    ImGui::SameLine();
+    ImGui::TextDisabled("| %.2f ms frame", ms);
+    ImGui::Separator();
+    ImGui::Text("CPU %.2f ms", stats.cpuTimeMs);
+    ImGui::SameLine();
+    ImGui::Text("GPU %.2f ms", stats.gpuTimeMs);
+    ImGui::SameLine();
+    ImGui::Text("Draw calls %s", groupThousands(stats.sceneDrawCalls).c_str());
+    ImGui::End();
+
     if (m_showOrientationGizmo) {
         ImGuiWindowFlags overlayFlags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_AlwaysAutoResize |
                                         ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_NoFocusOnAppearing |
