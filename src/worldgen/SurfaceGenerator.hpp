@@ -1,6 +1,6 @@
 #pragma once
 
-#include "TerrainMetadata.hpp"
+#include "TerrainMetaData.hpp"
 
 class World;
 
