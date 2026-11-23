@@ -84,6 +84,7 @@ add_executable(VoxelRenderer
     src/worldgen/SurfaceGenerator.cpp
     src/worldgen/CaveGenerator.cpp
     src/tools/Benchmark.cpp
+    src/scene/Entity.cpp
 )
 
 target_include_directories(VoxelRenderer PRIVATE src)
