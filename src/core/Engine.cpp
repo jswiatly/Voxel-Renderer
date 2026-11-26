@@ -57,6 +57,11 @@ void Engine::initVulkan() {
     m_texture.init(m_context, TEXTURE_PATHS);
     DumpVMAMemoryStats(m_context.allocator(), "vma_stats_init.json");
     loadTerrain(m_worldSize, m_seed);
+    m_entities = {
+        Entity({-3.0f, 100.0f, -6.0f}),
+        Entity({0.0f, 100.0f, -8.0f}),
+        Entity({3.0f, 100.0f, -6.0f}),
+    };
     const BlockMeshData block = buildBlockMesh({0.8f, 1.8f, 0.8f}, {0.9f, 0.25f, 0.2f});
     m_playerMesh.init(m_context, block.vertices, block.indices);
     m_imgui.init(m_context, window_, m_pipeline.renderPass());
@@ -144,6 +149,8 @@ void Engine::mainLoop() {
         }
 
         m_playerController.update(dt, m_world);
+        for (Entity& entity : m_entities)
+            entity.update(dt, m_world);
 
         camera.position = m_playerController.getPosition();
 
@@ -160,6 +167,11 @@ void Engine::mainLoop() {
         m_renderer.setRenderDistance(m_renderDistance);
         constexpr glm::vec3 PLAYER_EYE_OFFSET{0.0f, 0.8f, 0.0f};
         m_renderer.setPlayer(&m_playerMesh, camera.position - PLAYER_EYE_OFFSET, camera.thirdPerson);
+        std::vector<glm::vec3> entityPositions;
+        entityPositions.reserve(m_entities.size());
+        for (const Entity& entity : m_entities)
+            entityPositions.push_back(entity.getPosition());
+        m_renderer.setEntities(&m_playerMesh, entityPositions);
         m_renderer.drawFrame(ubo, m_skyColor);
 
         auto frameEnd = std::chrono::high_resolution_clock::now();

@@ -16,6 +16,7 @@
 #include "core/VulkanContext.hpp"
 #include "core/Window.hpp"
 #include "scene/Camera.hpp"
+#include "scene/Entity.hpp"
 #include "scene/Skybox.hpp"
 #include "scene/Water.hpp"
 #include "scene/World.hpp"
@@ -53,6 +54,7 @@ class Engine {
     Water m_water;
     Mesh m_playerMesh;
     PlayerController m_playerController;
+    std::vector<Entity> m_entities;
 
     float m_timeOfDay = 0.0f;
     bool m_manualTime = false;

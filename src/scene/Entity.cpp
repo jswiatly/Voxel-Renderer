@@ -30,6 +30,41 @@ void Entity::update(float dt, const World& world) {
     m_changeDirectionIn -= dt;
 
     if (m_changeDirectionIn <= 0.0f) {
+        static std::mt19937 random{std::random_device{}()};
+        static std::uniform_real_distribution<float> directionDistribution(-1.0f, 1.0f);
+        static std::uniform_real_distribution<float> durationDistribution(1.0f, 3.0f);
+
+        m_walkDirection = {directionDistribution(random), 0.0f, directionDistribution(random)};
+        if (glm::length(m_walkDirection) < 0.01f)
+            m_walkDirection = {1.0f, 0.0f, 0.0f};
+        else
+            m_walkDirection = glm::normalize(m_walkDirection);
+
+        m_changeDirectionIn = durationDistribution(random);
+    }
+
+    for (int axis : {0, 2}) {
+        glm::vec3 candidate = m_position;
+        candidate[axis] += m_walkDirection[axis] * m_speed * dt;
+
+        if (collidesAt(world, candidate, m_halfSize)) {
+            m_changeDirectionIn = 0.0f;
+            continue;
+        }
+
+        m_position = candidate;
+    }
+
+    m_velocity.y -= 9.81f * dt;
+    glm::vec3 candidate = m_position;
+    candidate.y += m_velocity.y * dt;
+
+    if (collidesAt(world, candidate, m_halfSize)) {
+        m_grounded = m_velocity.y < 0.0f;
+        m_velocity.y = 0.0f;
+    } else {
+        m_position = candidate;
+        m_grounded = false;
     }
 }
 

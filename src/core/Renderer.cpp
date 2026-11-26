@@ -218,6 +218,23 @@ void Renderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t image
         ++m_frameStats.sceneDrawCalls;
     }
 
+    if (m_entityMesh) {
+        ZoneScopedN("Record entities");
+        TracyVkZone(m_tracyCtx, commandBuffer, "Entities");
+        VkBuffer vertexBuffers[] = {m_entityMesh->vertexBuffer()};
+        VkDeviceSize offsets[] = {0};
+        vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
+        vkCmdBindIndexBuffer(commandBuffer, m_entityMesh->indexBuffer(), 0, VK_INDEX_TYPE_UINT32);
+
+        for (const glm::vec3& position : m_entityPositions) {
+            const glm::mat4 model = glm::translate(glm::mat4(1.0f), position);
+            vkCmdPushConstants(commandBuffer, m_pipeline->pipelineLayout(), VK_SHADER_STAGE_VERTEX_BIT, 0,
+                               sizeof(model), &model);
+            vkCmdDrawIndexed(commandBuffer, m_entityMesh->indexCount(), 1, 0, 0, 0);
+            ++m_frameStats.sceneDrawCalls;
+        }
+    }
+
     {
         ZoneScopedN("Record skybox");
         TracyVkZone(m_tracyCtx, commandBuffer, "Skybox");

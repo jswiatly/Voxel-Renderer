@@ -29,6 +29,10 @@ class Renderer {
         m_playerPos = pos;
         m_playerVisible = visible;
     }
+    void setEntities(Mesh* mesh, const std::vector<glm::vec3>& positions) {
+        m_entityMesh = mesh;
+        m_entityPositions = positions;
+    }
     void setRenderDistance(float d) {
         m_renderDistance = d;
     }
@@ -70,6 +74,8 @@ class Renderer {
     glm::vec3 m_playerPos{0.0f};
     FrameStats m_frameStats{};
     bool m_playerVisible = false;
+    Mesh* m_entityMesh = nullptr;
+    std::vector<glm::vec3> m_entityPositions;
 
     std::vector<VkCommandBuffer> m_commandBuffers;
     std::vector<VkSemaphore> m_imageAvailableSemaphores;
